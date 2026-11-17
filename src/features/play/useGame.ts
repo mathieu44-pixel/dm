@@ -22,7 +22,9 @@ import { buildTurnAnalysisRequest, parseTurnAnalysis } from '../../engine/memory
 import { buildSummaryRequest, planSummary, summaryIndex } from '../../engine/memory/summary'
 import { applyDeltas, describeStat, findTriggeredEnding, initStats } from '../../engine/progression/rules'
 import { buildHistory, buildMemoryPrompt, buildSystemPrompt, CONTINUE_INSTRUCTION, HISTORY_CHAR_BUDGET, type StoryContext } from '../../engine/prompt/storyPrompt'
+import { parseNarrative } from '../../engine/parser/narrative'
 import { getThread, parseOocCommand, toEntries } from '../../engine/session/thread'
+import { findPortrait } from '../../ui/NarrativeView'
 import type { Message, ThreadEntry } from '../../engine/session/types'
 
 /** Longueur maximale d'une réponse de la narratrice (marge pour les modèles qui « réfléchissent »). */
@@ -150,7 +152,14 @@ export function useGame(sessionId: string | undefined) {
         const auto = (await loadMemories(sessionId)).filter((m) => m.kind !== 'long')
         const before = await loadSession(sessionId)
         const values = initStats(statDefs, before?.stats)
-        const sceneImages = await loadSceneImages(data.story.id)
+        // Les images de personnage portent le nom du personnage dont elles sont le portrait.
+        const portraits = Object.fromEntries(
+          data.characters.filter((c) => c.portraitImageId).map((c) => [c.name, c.portraitImageId as string]),
+        )
+        const sceneImages = (await loadSceneImages(data.story.id)).map((img) => {
+          const owners = data.characters.filter((c) => c.portraitImageId === img.id).map((c) => c.name)
+          return owners.length ? { ...img, tags: [...owners, ...img.tags] } : img
+        })
         const result = await provider.complete(
           buildTurnAnalysisRequest(
             active.utilityModel,
@@ -163,8 +172,15 @@ export function useGame(sessionId: string | undefined) {
         )
         const analysis = parseTurnAnalysis(result.text, auto, statDefs, sceneImages)
         const last = entries[entries.length - 1]
-        if (analysis.imageId && last?.role === 'ai')
-          await setSceneImage(sessionId, entries.map((e) => e.id), last.id, analysis.imageId)
+        // Sans choix de l'IA : portrait du premier personnage qui parle dans le passage (comme dans OOC).
+        const fallback =
+          last?.role === 'ai'
+            ? parseNarrative(last.content)
+                .flatMap((seg) => (seg.type === 'dialogue' ? [findPortrait(seg.speaker, portraits)] : []))
+                .find((id): id is string => !!id)
+            : undefined
+        const imageId = analysis.imageId ?? fallback
+        if (imageId && last?.role === 'ai') await setSceneImage(sessionId, entries.map((e) => e.id), last.id, imageId)
         const nextStats = applyDeltas(statDefs, values, analysis.statDeltas)
         await patchSession(sessionId, { suggestions: analysis.suggestions, stats: nextStats })
         await applyMemoryChanges(sessionId, analysis)

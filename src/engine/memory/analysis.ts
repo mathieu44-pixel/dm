@@ -104,7 +104,9 @@ export function buildTurnAnalysisRequest(
             ? ['- stats : variations des jauges dues aux derniers échanges, selon leurs règles (entier positif ou négatif, petites variations ; omets les jauges inchangées).']
             : []),
           ...(imageList
-            ? ["- image : l'alias de l'image qui illustre le mieux la DERNIÈRE réponse de la narratrice (lieu, personnage présent, moment), ou null si aucune ne correspond vraiment."]
+            ? [
+                "- image : l'alias de l'image qui illustre le mieux la DERNIÈRE réponse de la narratrice : le personnage qui y parle ou agit le plus, sinon le lieu ou l'ambiance. Choisis presque toujours une image ; null seulement si aucune n'a de rapport avec le passage.",
+              ]
             : []),
         ].join('\n'),
       },

@@ -55,9 +55,17 @@ export function useStoryImages(storyId: string | undefined): ImageAsset[] | unde
   }, [storyId])
 }
 
+/** Catégories d'images affichables pendant la partie (et débloquées dans la galerie). */
+export const ILLUSTRATION_CATEGORIES = ['scene', 'character'] as const
+
+export function isIllustration(image: Pick<ImageAsset, 'category'>): boolean {
+  return (ILLUSTRATION_CATEGORIES as readonly string[]).includes(image.category)
+}
+
+/** Images de scène et de personnages d'une histoire, proposées à l'IA pour illustrer la partie. */
 export async function loadSceneImages(storyId: string): Promise<ImageAsset[]> {
   const list = await db.images.where('storyId').equals(storyId).toArray()
-  return list.filter((i) => i.category === 'scene').sort((a, b) => a.createdAt - b.createdAt)
+  return list.filter(isIllustration).sort((a, b) => a.createdAt - b.createdAt)
 }
 
 /** Adresse affichable d'une image stockée (libérée automatiquement). */

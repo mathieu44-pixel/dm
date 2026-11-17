@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams } from 'react-router'
-import { useStoryImages } from '../../data/images'
+import { isIllustration, useStoryImages } from '../../data/images'
 import { useSessionData } from '../../data/sessions'
 import { PageHeader } from '../../ui/PageHeader'
 import { StoredImage } from '../../ui/StoredImage'
@@ -14,7 +14,7 @@ export default function GalleryPage() {
   const [viewing, setViewing] = useState<string | null>(null)
 
   if (!data || !images) return null
-  const scenes = images.filter((i) => i.category === 'scene')
+  const scenes = images.filter(isIllustration)
   const unlocked = new Set(data.session.unlockedImageIds ?? [])
 
   return (
@@ -26,7 +26,7 @@ export default function GalleryPage() {
         </p>
         {scenes.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
-            Cette histoire n'a pas encore d'images de scène. Ajoute-les dans l'éditeur (section « Images »).
+            Cette histoire n'a pas encore d'images de scène ou de personnages. Ajoute-les dans l'éditeur (section « Images »).
           </p>
         ) : (
           <ul className="grid grid-cols-2 gap-3">

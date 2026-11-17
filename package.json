@@ -1,7 +1,7 @@
 {
   "name": "dm",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "DM (Dungeon Mistress) — application personnelle d'histoire interactive pilotée par IA",
   "type": "module",
   "scripts": {

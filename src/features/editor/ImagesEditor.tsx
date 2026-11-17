@@ -42,8 +42,9 @@ export function ImagesEditor({
   return (
     <div className="space-y-4">
       <p className="text-xs leading-relaxed text-muted">
-        Les images restent sur ton appareil. Les images de <strong>scène</strong> sont choisies par l'IA pendant la partie
-        grâce à leur description et leurs mots-clés, puis débloquées dans la galerie. ({images?.length ?? 0}/{IMAGE_LIMITS.perStory})
+        Les images restent sur ton appareil. Pendant la partie, l'IA illustre les passages avec les images de{' '}
+        <strong>scène</strong> et de <strong>personnage</strong> (choisies grâce à leur description et leurs mots-clés, et au
+        portrait associé à chaque personnage), puis les débloque dans la galerie. ({images?.length ?? 0}/{IMAGE_LIMITS.perStory})
       </p>
 
       <div className="flex gap-2">

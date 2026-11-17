@@ -18,7 +18,7 @@ export type ImageCategory = 'scene' | 'character' | 'cover' | 'ending' | 'other'
 
 export const IMAGE_CATEGORIES: { id: ImageCategory; label: string; hint: string }[] = [
   { id: 'scene', label: 'Scène', hint: "Proposée par l'IA pendant la partie, puis débloquée dans la galerie" },
-  { id: 'character', label: 'Personnage', hint: 'Portrait affiché à côté des répliques' },
+  { id: 'character', label: 'Personnage', hint: 'Portrait à côté des répliques, et image affichée quand le personnage parle' },
   { id: 'cover', label: 'Couverture', hint: "Image de présentation de l'histoire" },
   { id: 'ending', label: 'Fin', hint: 'Illustration d\'une carte de fin' },
   { id: 'other', label: 'Autre', hint: 'Simplement rangée dans la banque' },
