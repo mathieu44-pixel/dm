@@ -70,8 +70,9 @@ export function costUsd(modelId: ModelId, usage: Usage): number {
   const cacheRead = usage.cache_read_input_tokens ?? 0
   const promptTokens = usage.input_tokens + cacheWrite + cacheRead
 
-  const isLong = model.long && model.longPromptThreshold !== undefined && promptTokens > model.longPromptThreshold
-  const rate = isLong && model.long ? model.long : model.price
+  const longRate = model.price.long
+  const isLong = longRate !== undefined && model.longPromptThreshold !== undefined && promptTokens > model.longPromptThreshold
+  const rate = isLong && longRate ? longRate : model.price
 
   const dollars =
     usage.input_tokens * rate.input +
