@@ -9,6 +9,7 @@ import { activeContent, type Message, type Session } from '../../engine/session/
 import { Button } from '../../ui/Button'
 import { IconBook, IconBranch, IconContinue, IconEdit, IconNext, IconPrev, IconRegenerate, IconSearch, IconTrash } from '../../ui/icons'
 import { CostDetails } from '../../ui/CostDetails'
+import { scrollToMatch } from '../../ui/scrollToMatch'
 import { searchEntries } from '../../engine/session/search'
 import { toEntries } from '../../engine/session/thread'
 import { BUILTIN_COMMANDS } from '../../engine/session/commands'
@@ -421,15 +422,11 @@ export default function GamePage() {
           entries={toEntries(thread)}
           playerName={session.avatar?.name || 'Toi'}
           onClose={() => setSearchOpen(false)}
-          onPick={(id) => {
+          onPick={(id, query) => {
             setSearchOpen(false)
             requestAnimationFrame(() => {
               const el = document.getElementById(`msg-${id}`)
-              if (!el) return
-              el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              el.classList.remove('search-flash')
-              void el.offsetWidth
-              el.classList.add('search-flash')
+              if (el) scrollToMatch(el, query)
             })
           }}
         />
@@ -664,7 +661,7 @@ function SearchSheet({
   entries: ReturnType<typeof toEntries>
   playerName: string
   onClose: () => void
-  onPick: (id: string) => void
+  onPick: (id: string, query: string) => void
 }) {
   const [query, setQuery] = useState('')
   const hits = searchEntries(entries, query)
@@ -691,7 +688,7 @@ function SearchSheet({
           <li key={h.id}>
             <button
               type="button"
-              onClick={() => onPick(h.id)}
+              onClick={() => onPick(h.id, query)}
               className="w-full rounded-xl border border-line bg-surface-2 p-3 text-left text-sm leading-relaxed"
             >
               <span className="mb-1 block text-xs text-muted">

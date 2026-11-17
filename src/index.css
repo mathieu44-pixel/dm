@@ -46,3 +46,8 @@ body {
   border-radius: 0.75rem;
   animation: search-flash 2.4s ease-out;
 }
+
+::highlight(search-match) {
+  background-color: var(--color-accent);
+  color: var(--color-ink);
+}

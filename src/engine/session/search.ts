@@ -15,7 +15,7 @@ export interface SearchHit {
 }
 
 /** Texte normalisé et, pour chaque caractère normalisé, sa position dans l'original. */
-function normalizeWithMap(text: string): { norm: string; map: number[] } {
+export function normalizeWithMap(text: string): { norm: string; map: number[] } {
   let norm = ''
   const map: number[] = []
   let i = 0
