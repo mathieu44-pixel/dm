@@ -83,6 +83,19 @@ export default function HomePage() {
           </Link>
         </div>
 
+        <Link
+          to={`/creer?mode=${mode}`}
+          className="mb-4 flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm"
+        >
+          <span className="text-xl text-accent">✦</span>
+          <span>
+            <span className="font-medium text-accent">Créer avec l'IA</span>
+            <span className="block text-xs text-muted">
+              {mode === 'story' ? 'Une idée en une phrase, une histoire complète à modifier.' : 'Décris un personnage, l\'IA le développe.'}
+            </span>
+          </span>
+        </Link>
+
         {mode === 'character' && (
           <div className="mb-4">
             <button

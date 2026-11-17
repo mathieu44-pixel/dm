@@ -99,6 +99,13 @@ export default function StoryEditorPage() {
     <>
       <PageHeader title={isNew ? 'Nouvelle histoire' : "Modifier l'histoire"} />
       <main className="space-y-6 px-4 py-6 pb-32">
+        {searchParams.get('cree') === '1' && (
+          <p className="rounded-2xl border border-accent/40 bg-accent-soft p-4 text-sm leading-relaxed">
+            <span className="font-medium text-accent">✦ Générée par l'IA</span>
+            {sessionStorage.getItem('dm-creation-cost') ? ` (coût ≈ ${sessionStorage.getItem('dm-creation-cost')})` : ''}. Elle est déjà
+            enregistrée : relis, ajuste ce que tu veux (jauges et fins en bas de page), ajoute des images, puis appuie sur Enregistrer.
+          </p>
+        )}
         {errors.length > 0 && (
           <ul role="alert" className="space-y-1 rounded-2xl border border-red-400/40 bg-red-400/10 p-4 text-sm text-red-200">
             {errors.map((e) => (

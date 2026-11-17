@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { HashRouter, Route, Routes } from 'react-router'
 import { textSizeRem, useTextSize } from '../data/preferences'
 import { ensureExampleStory } from '../data/stories'
+import CreatorPage from '../features/creator/CreatorPage'
 import HistoryPage from '../features/history/HistoryPage'
 import { BottomNav } from '../ui/BottomNav'
 import AvatarsPage from '../features/avatars/AvatarsPage'
@@ -37,6 +38,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<WithNav><HomePage /></WithNav>} />
           <Route path="/parties" element={<WithNav><HistoryPage /></WithNav>} />
+          <Route path="/creer" element={<CreatorPage />} />
           <Route path="/histoire/:id" element={<StoryPage />} />
           <Route path="/histoire/:id/modifier" element={<StoryEditorPage />} />
           <Route path="/partie/:sessionId" element={<GamePage />} />
