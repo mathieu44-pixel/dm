@@ -2,7 +2,6 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { loadSceneImages } from '../../data/images'
 import { applyMemoryChanges, loadMemories, useGlobalNotes, useMemories } from '../../data/memories'
 import {
-  addCostAndTurn,
   addVariant,
   appendMessage,
   deleteAfter,
@@ -17,6 +16,7 @@ import {
 import { useSettings } from '../../data/settings'
 import { activeProvider, isReady } from '../../data/settingsModel'
 import { createProvider } from '../../engine/llm/client'
+import { recordCost } from '../../data/costs'
 import { describeLlmError } from '../../engine/llm/errors'
 import { buildTurnAnalysisRequest, parseTurnAnalysis } from '../../engine/memory/analysis'
 import { buildSummaryRequest, planSummary, summaryIndex } from '../../engine/memory/summary'
@@ -194,7 +194,7 @@ export function useGame(sessionId: string | undefined) {
         const nextStats = applyDeltas(statDefs, values, analysis.statDeltas)
         await patchSession(sessionId, { suggestions: analysis.suggestions, stats: nextStats })
         await applyMemoryChanges(sessionId, analysis)
-        if (result.costUsd) await addCostAndTurn(sessionId, result.costUsd)
+        await recordCost(sessionId, 'analysis', result)
         await checkEnding(sessionId, nextStats)
       } catch {
         /* suggestions et mémoire facultatives */
@@ -209,7 +209,7 @@ export function useGame(sessionId: string | undefined) {
         const result = await provider.complete(buildSummaryRequest(active.utilityModel, playerName, plan.base, plan.toSummarize))
         if (result.text.trim())
           await patchSession(sessionId, { summary: { text: result.text.trim(), coversUntilId: plan.coversUntilId, updatedAt: Date.now() } })
-        if (result.costUsd) await addCostAndTurn(sessionId, result.costUsd)
+        await recordCost(sessionId, 'summary', result)
       } catch {
         /* on réessaiera au prochain tour */
       }
@@ -239,7 +239,7 @@ export function useGame(sessionId: string | undefined) {
           { content, createdAt: Date.now(), model: result.model, costUsd: result.costUsd },
           { ooc: userMessage.ooc, parentId: userMessage.id },
         )
-        await addCostAndTurn(data.session.id, result.costUsd, userMessage.ooc ? 0 : 1)
+        await recordCost(data.session.id, 'story', result, userMessage.ooc ? 0 : 1)
         setStreaming(null)
         if (!userMessage.ooc)
           void refreshSuggestions([...entries, { id: ai.id, role: 'ai', ooc: false, content }])
@@ -270,7 +270,7 @@ export function useGame(sessionId: string | undefined) {
       const text = `Nouveau surnom : « ${alias.alias} »${alias.reason ? `\n${alias.reason}` : ''}`
       await appendMessage(data.session, 'ai', { content: text, createdAt: Date.now(), model: active.utilityModel, costUsd: result.costUsd }, { ooc: true, parentId: user.id })
       await patchSession(data.session.id, { aliases: [...existing, alias.alias] })
-      await addCostAndTurn(data.session.id, result.costUsd)
+      await recordCost(data.session.id, 'command', result)
     } catch (err) {
       fail(err)
     } finally {
@@ -308,7 +308,7 @@ export function useGame(sessionId: string | undefined) {
         const result = await generate(entries, (text) => setStreaming({ mode: 'regenerate', messageId: message.id, text }))
         const content = message.ooc ? result.text.trim() : sanitizeNarration(result.text)
         await addVariant(message.id, { content, createdAt: Date.now(), model: result.model, costUsd: result.costUsd })
-        await addCostAndTurn(data.session.id, result.costUsd)
+        await recordCost(data.session.id, 'story', result)
         setStreaming(null)
         if (index === thread.length - 1 && !message.ooc)
           void refreshSuggestions([...entries, { id: message.id, role: 'ai', ooc: false, content }])
@@ -337,7 +337,7 @@ export function useGame(sessionId: string | undefined) {
           CONTINUE_INSTRUCTION,
         )
         await setActiveContent(message.id, `${before}\n${message.ooc ? result.text.trim() : sanitizeNarration(result.text)}`, result.costUsd)
-        await addCostAndTurn(data.session.id, result.costUsd)
+        await recordCost(data.session.id, 'story', result)
         setStreaming(null)
       } catch (err) {
         setStreaming(null)

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { formatRelativeDate, type SessionSummary } from '../data/history'
 import { deleteSession, patchSession } from '../data/sessions'
-import { IconEdit, IconTrash } from './icons'
+import { IconBook, IconEdit, IconTrash } from './icons'
 
 /** Liste de parties : reprendre, renommer, supprimer. */
 export function SessionList({ items, showStoryTitle = true }: { items: SessionSummary[]; showStoryTitle?: boolean }) {
@@ -43,6 +43,14 @@ export function SessionList({ items, showStoryTitle = true }: { items: SessionSu
             </Link>
           )}
           <div className="flex justify-end gap-1 border-t border-line px-2 py-1 text-muted">
+            <Link
+              to={`/partie/${session.id}/lecture`}
+              aria-label="Relire"
+              title="Relire"
+              className="flex h-9 w-9 items-center justify-center rounded-full hover:text-text"
+            >
+              <IconBook />
+            </Link>
             <button
               type="button"
               aria-label="Renommer"

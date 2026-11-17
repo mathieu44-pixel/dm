@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
+import { recordCost } from '../../data/costs'
 import { draftToStory } from '../../data/creator'
 import { useSettings } from '../../data/settings'
 import { activeProvider, isReady } from '../../data/settingsModel'
@@ -54,6 +55,7 @@ export default function CreatorPage() {
         ...buildCreationRequest(active.storyModel, options),
         signal: controller.signal,
       })
+      await recordCost(null, 'creation', result)
       const { story, characters } = draftToStory(parseStoryDraft(result.text, options), options)
       await saveStory(story, characters)
       if (result.costUsd > 0) sessionStorage.setItem('dm-creation-cost', formatUsd(result.costUsd))

@@ -7,7 +7,10 @@ import { activeProvider } from '../../data/settingsModel'
 import { formatUsd } from '../../engine/llm/models'
 import { activeContent, type Message, type Session } from '../../engine/session/types'
 import { Button } from '../../ui/Button'
-import { IconBranch, IconContinue, IconEdit, IconNext, IconPrev, IconRegenerate, IconTrash } from '../../ui/icons'
+import { IconBook, IconBranch, IconContinue, IconEdit, IconNext, IconPrev, IconRegenerate, IconSearch, IconTrash } from '../../ui/icons'
+import { CostDetails } from '../../ui/CostDetails'
+import { searchEntries } from '../../engine/session/search'
+import { toEntries } from '../../engine/session/thread'
 import { BUILTIN_COMMANDS } from '../../engine/session/commands'
 import { LANGUAGES, LENGTHS, STYLES, lengthOption } from '../../engine/session/options'
 import { NarrativeView } from '../../ui/NarrativeView'
@@ -30,6 +33,8 @@ export default function GamePage() {
   const [commandsOpen, setCommandsOpen] = useState(false)
   const [editing, setEditing] = useState<{ message: Message; text: string } | null>(null)
   const [viewing, setViewing] = useState<string | null>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [costsOpen, setCostsOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -98,6 +103,14 @@ export default function GamePage() {
         <h1 className="min-w-0 flex-1 truncate font-semibold">{data.story.title}</h1>
         <button
           type="button"
+          aria-label="Rechercher dans la partie"
+          onClick={() => setSearchOpen(true)}
+          className="flex h-11 w-11 items-center justify-center rounded-full text-muted"
+        >
+          <IconSearch />
+        </button>
+        <button
+          type="button"
           aria-label="Menu de la partie"
           onClick={() => setMenuOpen(true)}
           className="flex h-11 w-11 items-center justify-center rounded-full text-xl text-muted"
@@ -123,8 +136,8 @@ export default function GamePage() {
 
           if (message.role === 'user')
             return (
+              <div key={message.id} id={`msg-${message.id}`}>
               <UserBubble
-                key={message.id}
                 message={message}
                 canEdit={!busy}
                 isLast={isLast}
@@ -136,6 +149,7 @@ export default function GamePage() {
                   if (window.confirm('Supprimer ce message et toute la suite ?')) void game.deleteMessage(message)
                 }}
               />
+              </div>
             )
 
           const shown =
@@ -147,7 +161,7 @@ export default function GamePage() {
 
           const sceneImage = showImages && !streamingHere ? message.variants[message.activeVariant]?.imageId : undefined
           return (
-            <article key={message.id}>
+            <article key={message.id} id={`msg-${message.id}`}>
               {sceneImage && (
                 <button type="button" onClick={() => setViewing(sceneImage)} className="-mx-5 mb-5 block w-[calc(100%+2.5rem)]" aria-label="Agrandir l'image">
                   <StoredImage id={sceneImage} className="aspect-[4/3] w-full object-[center_20%]" />
@@ -312,7 +326,19 @@ export default function GamePage() {
           <dl className="space-y-2 text-sm">
             <Row label="Avatar" value={session.avatar?.name ?? 'Aucun'} />
             <Row label="Tours joués" value={String(session.turn)} />
-            <Row label="Coût estimé" value={formatUsd(session.costUsd)} />
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted">Coût estimé</dt>
+              <dd>
+                <button type="button" onClick={() => setCostsOpen((v) => !v)} className="text-accent underline-offset-2 hover:underline">
+                  {formatUsd(session.costUsd)} {costsOpen ? '▴' : '▾'}
+                </button>
+              </dd>
+            </div>
+            {costsOpen && (
+              <div className="rounded-xl bg-surface-2 p-3">
+                <CostDetails breakdown={session.costs} knownTotalUsd={session.costUsd} />
+              </div>
+            )}
             {settings && <Row label="Modèle" value={activeProvider(settings).storyModel} />}
             {(session.aliases?.length ?? 0) > 0 && <Row label="Surnoms" value={session.aliases!.join(', ')} />}
             {game.endings.length > 0 && (
@@ -345,6 +371,19 @@ export default function GamePage() {
             </button>
           </div>
           <Link
+            to={`/partie/${session.id}/lecture`}
+            className="flex items-center justify-between rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm"
+          >
+            <span className="flex items-center gap-3">
+              <IconBook />
+              <span>
+                Mode relecture
+                <span className="block text-xs text-muted">Relire la partie comme un livre, l'exporter en texte</span>
+              </span>
+            </span>
+            <span className="text-muted">›</span>
+          </Link>
+          <Link
             to={`/partie/${session.id}/galerie`}
             className="flex items-center justify-between rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm"
           >
@@ -375,6 +414,25 @@ export default function GamePage() {
             Supprimer cette partie
           </Button>
         </Sheet>
+      )}
+
+      {searchOpen && (
+        <SearchSheet
+          entries={toEntries(thread)}
+          playerName={session.avatar?.name || 'Toi'}
+          onClose={() => setSearchOpen(false)}
+          onPick={(id) => {
+            setSearchOpen(false)
+            requestAnimationFrame(() => {
+              const el = document.getElementById(`msg-${id}`)
+              if (!el) return
+              el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              el.classList.remove('search-flash')
+              void el.offsetWidth
+              el.classList.add('search-flash')
+            })
+          }}
+        />
       )}
 
       {viewing && <ImageViewer id={viewing} onClose={() => setViewing(null)} />}
@@ -593,6 +651,61 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
         {children}
       </div>
     </div>
+  )
+}
+
+/** Recherche dans le fil affiché (v0.9). */
+function SearchSheet({
+  entries,
+  playerName,
+  onClose,
+  onPick,
+}: {
+  entries: ReturnType<typeof toEntries>
+  playerName: string
+  onClose: () => void
+  onPick: (id: string) => void
+}) {
+  const [query, setQuery] = useState('')
+  const hits = searchEntries(entries, query)
+  const occurrences = hits.reduce((n, h) => n + h.count, 0)
+  return (
+    <Sheet title="Rechercher dans la partie" onClose={onClose}>
+      <input
+        autoFocus
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Un nom, un lieu, un objet…"
+        className="min-h-11 w-full rounded-xl border border-line bg-surface-2 px-3 text-base outline-none focus:border-accent"
+      />
+      {query.trim().length >= 2 && (
+        <p className="text-xs text-muted">
+          {hits.length
+            ? `${occurrences} occurrence${occurrences > 1 ? 's' : ''} dans ${hits.length} message${hits.length > 1 ? 's' : ''}`
+            : 'Aucun résultat dans cette branche de la partie.'}
+        </p>
+      )}
+      <ul className="space-y-2">
+        {hits.map((h) => (
+          <li key={h.id}>
+            <button
+              type="button"
+              onClick={() => onPick(h.id)}
+              className="w-full rounded-xl border border-line bg-surface-2 p-3 text-left text-sm leading-relaxed"
+            >
+              <span className="mb-1 block text-xs text-muted">
+                {h.index === 0 ? 'Prologue' : h.role === 'user' ? playerName : 'Narratrice'}
+                {h.count > 1 ? ` · ${h.count} fois` : ''}
+              </span>
+              {h.before}
+              <mark className="rounded bg-accent-soft px-0.5 text-accent">{h.match}</mark>
+              {h.after}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Sheet>
   )
 }
 

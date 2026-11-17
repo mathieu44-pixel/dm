@@ -29,3 +29,20 @@ body {
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* Message trouvé par la recherche (v0.9) */
+@keyframes search-flash {
+  0%,
+  60% {
+    background: var(--color-accent-soft);
+    box-shadow: 0 0 0 0.5rem var(--color-accent-soft);
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 0.5rem transparent;
+  }
+}
+.search-flash {
+  border-radius: 0.75rem;
+  animation: search-flash 2.4s ease-out;
+}

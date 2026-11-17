@@ -14,6 +14,7 @@ import { formatUsd, isModelId, MODELS } from '../../engine/llm/models'
 import type { ModelOption, ProviderId } from '../../engine/llm/types'
 import { Button } from '../../ui/Button'
 import { PageHeader } from '../../ui/PageHeader'
+import { SpendingPanel } from './SpendingPanel'
 
 const PROVIDERS: ProviderId[] = ['gemini', 'anthropic']
 
@@ -59,6 +60,8 @@ export default function SettingsPage() {
 
         {/* `key` : on repart d'un état propre quand on change de fournisseur. */}
         <ProviderPanel key={provider} provider={provider} config={settings[provider]} onSaved={flashSaved} />
+
+        <SpendingPanel />
 
         <GlobalNotesPanel />
 

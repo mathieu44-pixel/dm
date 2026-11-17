@@ -62,3 +62,17 @@ export const IconBranch = () => (
     <path d="M18 11c0 4-6 3-11.5 6.5" />
   </Svg>
 )
+
+export const IconSearch = () => (
+  <Svg>
+    <circle cx="11" cy="11" r="6.5" />
+    <path d="M16 16l4.5 4.5" />
+  </Svg>
+)
+
+export const IconBook = () => (
+  <Svg>
+    <path d="M12 6.5C10 5 7 4.5 4 5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5z" />
+    <path d="M12 6.5v13" />
+  </Svg>
+)

@@ -102,15 +102,6 @@ export async function patchSession(id: string, patch: Partial<Session>): Promise
   await db.sessions.update(id, patch)
 }
 
-/** Ajoute un coût et éventuellement un tour, en relisant la valeur à jour (pas de valeur périmée). */
-export async function addCostAndTurn(id: string, costUsd: number, turns = 0): Promise<void> {
-  await db.transaction('rw', db.sessions, async () => {
-    const s = await db.sessions.get(id)
-    if (!s) return
-    await db.sessions.update(id, { costUsd: s.costUsd + costUsd, turn: s.turn + turns })
-  })
-}
-
 /** Ajoute un message à la suite de la feuille active et en fait la nouvelle feuille. */
 export async function appendMessage(
   session: Session,

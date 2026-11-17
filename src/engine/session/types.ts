@@ -1,3 +1,4 @@
+import type { CostBreakdown } from '../llm/costs'
 import type { SessionSummary } from '../memory/types'
 import type { ReachedEnding } from '../progression/types'
 import type { Language, ResponseLength } from './options'
@@ -46,6 +47,8 @@ export interface Session {
   turn: number
   /** Coût cumulé estimé (0 avec une offre gratuite). */
   costUsd: number
+  /** Détail des coûts par catégorie (v0.9, absent sur les parties plus anciennes). */
+  costs?: CostBreakdown
   /** Actions proposées pour le prochain tour. */
   suggestions: string[]
   /** Notes du joueur pour cette partie (« User Notes » d'OOC). */
