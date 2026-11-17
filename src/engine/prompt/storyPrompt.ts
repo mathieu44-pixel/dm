@@ -227,4 +227,4 @@ export function buildHistory(
 
 /** Consigne ajoutée (sans être enregistrée) pour prolonger la dernière réponse. */
 export const CONTINUE_INSTRUCTION =
-  `${OOC_PREFIX} Poursuis ta dernière réponse exactement là où elle s'est arrêtée, sans la répéter ni la résumer, en respectant le format narratif.`
+  `${OOC_PREFIX} Poursuis ta dernière réponse exactement là où elle s'est arrêtée, sans la répéter ni la résumer, en respectant le format narratif. Si elle s'arrête au milieu d'un mot ou d'une phrase, commence par les terminer.`

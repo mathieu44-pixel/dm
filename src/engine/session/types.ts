@@ -12,6 +12,8 @@ export interface MessageVariant {
   costUsd?: number
   /** Image de scène affichée au-dessus de ce passage (v0.5). */
   imageId?: string
+  /** Réponse coupée avant sa fin : l'écran propose de la continuer (v0.9.3). */
+  truncated?: boolean
 }
 
 export interface Message {

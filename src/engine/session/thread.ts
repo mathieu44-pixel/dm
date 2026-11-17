@@ -68,3 +68,25 @@ export function deepestLeaf(messages: Message[], fromId: string): string {
   }
   return current
 }
+
+/**
+ * Recolle la suite d'une réponse : directement si la réponse s'était arrêtée
+ * au milieu d'un mot ou d'une phrase, sinon sur une nouvelle ligne.
+ */
+export function joinContinuation(before: string, addition: string): string {
+  const add = addition.replace(/^\s+/, '')
+  if (!add) return before
+  const tail = before.replace(/\s+$/, '')
+  // Mot coupé : « s'immobil » + « isa » → « s'immobilisa ».
+  if (/\p{L}$/u.test(tail) && /^\p{Ll}/u.test(add)) {
+    const firstWord = /^\p{L}+/u.exec(add)?.[0] ?? ''
+    // Le modèle répète parfois le mot entier : « s'immobil » + « s'immobilisa » ou « immobilisa ».
+    const lastWord = /\p{L}+$/u.exec(tail)?.[0] ?? ''
+    if (lastWord && firstWord.toLowerCase().startsWith(lastWord.toLowerCase()) && firstWord.length > lastWord.length)
+      return tail.slice(0, tail.length - lastWord.length) + add
+    return tail + add
+  }
+  // Phrase coupée (pas de ponctuation finale) : on continue sur la même ligne.
+  if (/[\p{L}\p{N},;:]$/u.test(tail)) return `${tail} ${add}`
+  return `${tail}\n${add}`
+}

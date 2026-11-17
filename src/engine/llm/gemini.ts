@@ -62,6 +62,11 @@ export function assertNotBlocked(chunk: GeminiResponse): void {
     throw new LlmError(`Réponse interrompue par le filtre de Gemini (${finish}).`, 'gemini', { kind: 'blocked' })
 }
 
+/** Gemini signale une réponse coupée par la limite de jetons avec MAX_TOKENS. */
+export function isTruncated(finishReason: string | undefined): boolean {
+  return finishReason === 'MAX_TOKENS'
+}
+
 export function toUsage(meta: GeminiResponse['usageMetadata']): LlmUsage {
   const cached = meta?.cachedContentTokenCount ?? 0
   return {
@@ -206,7 +211,7 @@ export function createGeminiProvider(apiKey: string): LlmProvider {
     if (!response.ok) await throwHttpError(response)
     const data = (await response.json()) as GeminiResponse
     assertNotBlocked(data)
-    return { text: extractText(data), usage: toUsage(data.usageMetadata), costUsd: 0 }
+    return { text: extractText(data), usage: toUsage(data.usageMetadata), costUsd: 0, truncated: isTruncated(data.candidates?.[0]?.finishReason) }
   }
 
   async function stream(request: LlmRequest, onText: (delta: string) => void): Promise<LlmResult> {
@@ -222,6 +227,7 @@ export function createGeminiProvider(apiKey: string): LlmProvider {
     let buffer = ''
     let text = ''
     let lastUsage: GeminiResponse['usageMetadata']
+    let finish: string | undefined
 
     for (;;) {
       const { done, value } = await reader.read()
@@ -236,10 +242,13 @@ export function createGeminiProvider(apiKey: string): LlmProvider {
           onText(delta)
         }
         if (event.usageMetadata) lastUsage = event.usageMetadata
+        const reason = event.candidates?.[0]?.finishReason
+        if (reason) finish = reason
       }
       if (done) break
     }
-    return { text, usage: toUsage(lastUsage), costUsd: 0 }
+    // Sans raison de fin, le flux a été coupé en route : la réponse est incomplète.
+    return { text, usage: toUsage(lastUsage), costUsd: 0, truncated: finish === undefined || isTruncated(finish) }
   }
 
   async function listModels(): Promise<ModelOption[]> {

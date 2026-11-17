@@ -1,3 +1,5 @@
+import { useLiveQuery } from 'dexie-react-hooks'
+import { BACKUP_REMINDER, needsBackupReminder } from '../engine/session/backupReminder'
 import type { MemoryEntry } from '../engine/memory/types'
 import type { Message, Session } from '../engine/session/types'
 import { db } from './db'
@@ -127,4 +129,35 @@ export function downloadJson(filename: string, data: unknown): void {
   a.click()
   a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+/* ---------- Rappel de sauvegarde (v0.9.3) ---------- */
+
+/** Exporte tout, télécharge le fichier et note la date de sauvegarde. Renvoie le résumé du contenu. */
+export async function downloadBackup(): Promise<string> {
+  const backup = await exportAll()
+  downloadJson(`dm-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`, backup)
+  await db.meta.bulkPut([
+    { key: 'lastBackupAt', value: Date.now() },
+    { key: 'backupSnoozedUntil', value: 0 },
+  ])
+  return summarizeBackup(backup)
+}
+
+export async function snoozeBackupReminder(): Promise<void> {
+  await db.meta.put({ key: 'backupSnoozedUntil', value: Date.now() + BACKUP_REMINDER.snoozeDays * 24 * 60 * 60 * 1000 })
+}
+
+export function useBackupReminder(): { show: boolean; lastBackupAt?: number } | undefined {
+  return useLiveQuery(async () => {
+    const [last, snooze, sessions] = await Promise.all([db.meta.get('lastBackupAt'), db.meta.get('backupSnoozedUntil'), db.sessions.toArray()])
+    const lastBackupAt = typeof last?.value === 'number' ? last.value : undefined
+    const state = {
+      lastBackupAt,
+      snoozedUntil: typeof snooze?.value === 'number' ? snooze.value : undefined,
+      lastPlayedAt: sessions.reduce<number | undefined>((max, s) => (max === undefined || s.lastPlayedAt > max ? s.lastPlayedAt : max), undefined),
+      totalTurns: sessions.reduce((n, s) => n + s.turn, 0),
+    }
+    return { show: needsBackupReminder(state), lastBackupAt }
+  }, [])
 }

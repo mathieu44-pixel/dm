@@ -139,12 +139,12 @@ export async function addVariant(messageId: string, variant: MessageVariant): Pr
 }
 
 /** Remplace le texte de la variante affichée (modification manuelle ou « continuer »). */
-export async function setActiveContent(messageId: string, content: string, extraCostUsd = 0): Promise<void> {
+export async function setActiveContent(messageId: string, content: string, extraCostUsd = 0, truncated = false): Promise<void> {
   await db.transaction('rw', db.messages, async () => {
     const m = await db.messages.get(messageId)
     if (!m) return
     const variants = m.variants.map((v, i) =>
-      i === m.activeVariant ? { ...v, content, costUsd: (v.costUsd ?? 0) + extraCostUsd } : v,
+      i === m.activeVariant ? { ...v, content, costUsd: (v.costUsd ?? 0) + extraCostUsd, truncated } : v,
     )
     await db.messages.update(messageId, { variants })
   })

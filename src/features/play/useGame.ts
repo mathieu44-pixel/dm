@@ -27,7 +27,7 @@ import { sanitizeNarration } from '../../engine/parser/sanitize'
 import { buildAliasRequest, parseAlias } from '../../engine/prompt/alias'
 import { parseCommand } from '../../engine/session/commands'
 import { languageInstruction, lengthOption, styleInstruction } from '../../engine/session/options'
-import { deepestLeaf, getThread, siblingsOf, toEntries } from '../../engine/session/thread'
+import { deepestLeaf, getThread, joinContinuation, siblingsOf, toEntries } from '../../engine/session/thread'
 import { findPortrait } from '../../ui/NarrativeView'
 import type { Message, ThreadEntry } from '../../engine/session/types'
 
@@ -236,7 +236,7 @@ export function useGame(sessionId: string | undefined) {
         const ai = await appendMessage(
           data.session,
           'ai',
-          { content, createdAt: Date.now(), model: result.model, costUsd: result.costUsd },
+          { content, createdAt: Date.now(), model: result.model, costUsd: result.costUsd, ...(result.truncated ? { truncated: true } : {}) },
           { ooc: userMessage.ooc, parentId: userMessage.id },
         )
         await recordCost(data.session.id, 'story', result, userMessage.ooc ? 0 : 1)
@@ -307,7 +307,7 @@ export function useGame(sessionId: string | undefined) {
       try {
         const result = await generate(entries, (text) => setStreaming({ mode: 'regenerate', messageId: message.id, text }))
         const content = message.ooc ? result.text.trim() : sanitizeNarration(result.text)
-        await addVariant(message.id, { content, createdAt: Date.now(), model: result.model, costUsd: result.costUsd })
+        await addVariant(message.id, { content, createdAt: Date.now(), model: result.model, costUsd: result.costUsd, ...(result.truncated ? { truncated: true } : {}) })
         await recordCost(data.session.id, 'story', result)
         setStreaming(null)
         if (index === thread.length - 1 && !message.ooc)
@@ -336,7 +336,7 @@ export function useGame(sessionId: string | undefined) {
           (text) => setStreaming({ mode: 'continue', messageId: message.id, text }),
           CONTINUE_INSTRUCTION,
         )
-        await setActiveContent(message.id, `${before}\n${message.ooc ? result.text.trim() : sanitizeNarration(result.text)}`, result.costUsd)
+        await setActiveContent(message.id, joinContinuation(before, message.ooc ? result.text.trim() : sanitizeNarration(result.text)), result.costUsd, !!result.truncated)
         await recordCost(data.session.id, 'story', result)
         setStreaming(null)
       } catch (err) {

@@ -16,21 +16,21 @@ export const LENGTHS: { id: ResponseLength; label: string; hint: string; instruc
     label: 'Courte',
     hint: 'Réponses rapides, rythme soutenu',
     instruction: 'Réponses courtes : 80 à 180 mots, va droit à l\'essentiel.',
-    maxTokens: 1024,
+    maxTokens: 1536,
   },
   {
     id: 'normal',
     label: 'Normale',
     hint: 'Équilibre entre action et description',
     instruction: 'Réponses de 200 à 400 mots.',
-    maxTokens: 2048,
+    maxTokens: 3072,
   },
   {
     id: 'long',
     label: 'Longue',
     hint: 'Descriptions riches, scènes développées',
     instruction: 'Réponses longues et détaillées : 450 à 800 mots, scènes développées, descriptions sensorielles.',
-    maxTokens: 3072,
+    maxTokens: 4096,
   },
 ]
 

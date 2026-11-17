@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { downloadBackup, snoozeBackupReminder, useBackupReminder } from '../../data/backup'
 import { importCharacterFile } from '../../data/importCard'
+import { daysSince } from '../../engine/session/backupReminder'
 import type { StoryMode } from '../../data/types'
 import { APP_VERSION, ROADMAP, isDelivered } from '../../app/version'
 import { useSettings } from '../../data/settings'
@@ -12,6 +14,8 @@ import { StoryCover } from '../../ui/StoryCover'
 /** Accueil : bibliothèque d'histoires. */
 export default function HomePage() {
   const settings = useSettings()
+  const backupReminder = useBackupReminder()
+  const [backupDone, setBackupDone] = useState<string | null>(null)
   const allStories = useStories()
   const navigate = useNavigate()
   const [mode, setMode] = useState<StoryMode>(() => (sessionStorage.getItem('dm-home-mode') === 'character' ? 'character' : 'story'))
@@ -53,6 +57,31 @@ export default function HomePage() {
           dans les Réglages pour pouvoir jouer. →
         </Link>
       )}
+
+      {backupReminder?.show && (
+        <div className="mb-6 rounded-2xl border border-accent/40 bg-accent-soft p-4 text-sm leading-relaxed">
+          <p>
+            <span className="font-medium text-accent">Pense à sauvegarder.</span>{' '}
+            {backupReminder.lastBackupAt
+              ? `Dernière sauvegarde il y a ${daysSince(backupReminder.lastBackupAt)} jours.`
+              : "Tu n'as encore jamais sauvegardé."}{' '}
+            Tout est stocké sur ce téléphone uniquement.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={async () => setBackupDone(`Sauvegarde téléchargée : ${await downloadBackup()}.`)}
+              className="rounded-full bg-accent px-4 py-2 text-xs font-medium text-ink"
+            >
+              Sauvegarder maintenant
+            </button>
+            <button type="button" onClick={() => void snoozeBackupReminder()} className="px-3 py-2 text-xs text-muted">
+              Plus tard
+            </button>
+          </div>
+        </div>
+      )}
+      {backupDone && <p className="mb-6 text-xs text-muted">{backupDone}</p>}
 
       <section>
         <div className="mb-4 flex items-end justify-between gap-3">

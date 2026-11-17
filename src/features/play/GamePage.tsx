@@ -169,6 +169,14 @@ export default function GamePage() {
                 </button>
               )}
               {message.ooc ? <OocText text={shown} /> : <NarrativeView text={shown || '「…」'} portraits={portraits} />}
+              {!busy && message.variants[message.activeVariant]?.truncated && (
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-accent/40 bg-accent-soft px-3 py-2 text-sm">
+                  <span>Réponse coupée avant la fin.</span>
+                  <button type="button" onClick={() => void game.continueMessage(message)} className="flex shrink-0 items-center gap-1 font-medium text-accent">
+                    <IconContinue /> Continuer
+                  </button>
+                </div>
+              )}
               {!busy && (
                 <AiActions
                   message={message}

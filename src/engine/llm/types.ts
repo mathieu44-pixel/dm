@@ -37,6 +37,8 @@ export interface LlmResult {
   usage: LlmUsage
   /** Coût estimé en dollars (0 pour une offre gratuite). */
   costUsd: number
+  /** Réponse interrompue avant sa fin (limite de longueur atteinte ou flux coupé). */
+  truncated?: boolean
 }
 
 export interface ModelOption {

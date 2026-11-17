@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { downloadJson, exportAll, importBackup, parseBackup, summarizeBackup } from '../../data/backup'
+import { downloadBackup, importBackup, parseBackup, summarizeBackup } from '../../data/backup'
 import { saveGlobalNotes, useGlobalNotes } from '../../data/memories'
 import { setTextSize, TEXT_SIZES, useTextSize } from '../../data/preferences'
 import { MEMORY_LIMITS } from '../../engine/memory/types'
@@ -389,9 +389,7 @@ function BackupPanel() {
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null)
 
   const doExport = async () => {
-    const backup = await exportAll()
-    downloadJson(`dm-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`, backup)
-    setStatus({ ok: true, text: `Sauvegarde téléchargée : ${summarizeBackup(backup)}.` })
+    setStatus({ ok: true, text: `Sauvegarde téléchargée : ${await downloadBackup()}.` })
   }
 
   const doImport = async (file: File) => {

@@ -58,14 +58,14 @@ export function createAnthropicProvider(apiKey: string): LlmProvider {
 
   async function complete(request: LlmRequest): Promise<LlmResult> {
     const message = await client.messages.create(params(request), { signal: request.signal })
-    return { text: textOf(message), usage: toUsage(message.usage), costUsd: priceOf(request.model, message.usage) }
+    return { text: textOf(message), usage: toUsage(message.usage), costUsd: priceOf(request.model, message.usage), truncated: message.stop_reason === 'max_tokens' }
   }
 
   async function stream(request: LlmRequest, onText: (delta: string) => void): Promise<LlmResult> {
     const runner = client.messages.stream(params(request), { signal: request.signal })
     runner.on('text', (delta) => onText(delta))
     const message = await runner.finalMessage()
-    return { text: textOf(message), usage: toUsage(message.usage), costUsd: priceOf(request.model, message.usage) }
+    return { text: textOf(message), usage: toUsage(message.usage), costUsd: priceOf(request.model, message.usage), truncated: message.stop_reason === 'max_tokens' }
   }
 
   async function listModels() {

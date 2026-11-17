@@ -65,3 +65,45 @@ describe('export texte', () => {
     expect(fileSlug('!!!')).toBe('partie')
   })
 })
+
+import { joinContinuation } from './thread'
+import { isTruncated } from '../llm/gemini'
+
+describe('suite de réponse coupée', () => {
+  it('recolle un mot coupé', () => {
+    expect(joinContinuation("「Isolde s'immobil", 'isa sur la marche.」')).toBe("「Isolde s'immobilisa sur la marche.」")
+    expect(joinContinuation("「Isolde s'immobil", 'immobilisa sur la marche.」')).toBe("「Isolde s'immobilisa sur la marche.」")
+  })
+  it('poursuit une phrase coupée sur la même ligne', () => {
+    expect(joinContinuation('「Elle pose le plat,', 'puis s’éloigne.」')).toBe('「Elle pose le plat, puis s’éloigne.」')
+  })
+  it('passe à la ligne après une fin de phrase', () => {
+    expect(joinContinuation('「Il se tait.」', '\n「La pluie redouble.」')).toBe('「Il se tait.」\n「La pluie redouble.」')
+  })
+  it('reconnaît une réponse Gemini coupée par la limite', () => {
+    expect(isTruncated('MAX_TOKENS')).toBe(true)
+    expect(isTruncated('STOP')).toBe(false)
+  })
+})
+
+import { needsBackupReminder } from './backupReminder'
+
+describe('rappel de sauvegarde', () => {
+  const day = 24 * 60 * 60 * 1000
+  const now = 100 * day
+  it('attend 10 tours avant le premier rappel', () => {
+    expect(needsBackupReminder({ lastPlayedAt: now, totalTurns: 9 }, now)).toBe(false)
+    expect(needsBackupReminder({ lastPlayedAt: now, totalTurns: 10 }, now)).toBe(true)
+  })
+  it('rappelle après 7 jours seulement si on a joué depuis', () => {
+    expect(needsBackupReminder({ lastBackupAt: now - 8 * day, lastPlayedAt: now - day, totalTurns: 50 }, now)).toBe(true)
+    expect(needsBackupReminder({ lastBackupAt: now - 8 * day, lastPlayedAt: now - 9 * day, totalTurns: 50 }, now)).toBe(false)
+    expect(needsBackupReminder({ lastBackupAt: now - 3 * day, lastPlayedAt: now, totalTurns: 50 }, now)).toBe(false)
+  })
+  it('respecte le report', () => {
+    expect(needsBackupReminder({ lastPlayedAt: now, totalTurns: 50, snoozedUntil: now + day }, now)).toBe(false)
+  })
+  it('ne rappelle rien sans partie jouée', () => {
+    expect(needsBackupReminder({ totalTurns: 0 }, now)).toBe(false)
+  })
+})
