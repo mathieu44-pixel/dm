@@ -1,7 +1,7 @@
 {
   "name": "dm",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "DM (Dungeon Mistress) — application personnelle d'histoire interactive pilotée par IA",
   "type": "module",
   "scripts": {
@@ -12,8 +12,12 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.0.0",
+    "dexie": "^4.0.0",
+    "dexie-react-hooks": "^1.1.7",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "react-router": "^7.0.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.0",
