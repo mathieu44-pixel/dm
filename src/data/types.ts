@@ -1,6 +1,8 @@
 import { DEFAULT_STORY_MODEL, DEFAULT_UTILITY_MODEL } from '../engine/llm/models'
 import type { ProviderId } from '../engine/llm/types'
 
+/* ---------- Réglages ---------- */
+
 /** Clé et modèles choisis pour un fournisseur. */
 export interface ProviderSettings {
   apiKey: string
@@ -26,4 +28,76 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // Les modèles Gemini sont choisis après lecture de la liste disponible pour la clé.
   gemini: { apiKey: '', storyModel: '', utilityModel: '' },
   updatedAt: 0,
+}
+
+/* ---------- Histoires ---------- */
+
+/** Personnage non joueur, incarné par l'IA. */
+export interface Character {
+  id: string
+  name: string
+  /** Rôle ou titre court (« Aubergiste », « Capitaine de la garde »…). */
+  title: string
+  appearance: string
+  personality: string
+  /** Façon de parler, tics de langage. */
+  speech: string
+  background: string
+  createdAt: number
+  updatedAt: number
+}
+
+/** Point de départ d'une partie (une histoire peut en proposer plusieurs). */
+export interface StartSetting {
+  id: string
+  name: string
+  /** Texte d'ouverture, au format narratif (「…」 et `Nom | "…"`). */
+  prologue: string
+  /** Jusqu'à 3 actions proposées au joueur au premier tour. */
+  initialSuggestions: string[]
+}
+
+export type StoryMode = 'story' | 'character'
+
+export interface Story {
+  id: string
+  title: string
+  subtitle: string
+  tags: string[]
+  mode: StoryMode
+  /** Univers, lieux, factions, règles du monde. */
+  worldLore: string
+  /** Consignes pour la narratrice (rôle, déroulement, limites). */
+  systemPrompt: string
+  /** Ton et style d'écriture souhaités. */
+  writingRules: string
+  characterIds: string[]
+  startSettings: StartSetting[]
+  /** Histoire d'exemple fournie avec l'application. */
+  isExample?: boolean
+  createdAt: number
+  updatedAt: number
+  lastPlayedAt?: number
+}
+
+/* ---------- Avatars (personnage du joueur) ---------- */
+
+export interface Avatar {
+  id: string
+  /** Nom par lequel les personnages t'appellent (40 caractères max). */
+  name: string
+  /** Ce que les personnages doivent savoir de toi (500 caractères max). */
+  details: string
+  /** Don, pouvoir ou talent particulier (facultatif). */
+  gift: string
+  createdAt: number
+  updatedAt: number
+}
+
+/* ---------- Divers ---------- */
+
+/** Petites valeurs persistantes (avatar par défaut, exemple installé…). */
+export interface MetaEntry {
+  key: string
+  value: unknown
 }
