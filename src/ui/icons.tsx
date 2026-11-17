@@ -52,3 +52,13 @@ export const IconNext = () => (
     <path d="M9 6l6 6-6 6" />
   </Svg>
 )
+
+export const IconBranch = () => (
+  <Svg>
+    <circle cx="6" cy="5" r="2" />
+    <circle cx="6" cy="19" r="2" />
+    <circle cx="18" cy="9" r="2" />
+    <path d="M6 7v10" />
+    <path d="M18 11c0 4-6 3-11.5 6.5" />
+  </Svg>
+)

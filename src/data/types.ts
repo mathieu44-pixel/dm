@@ -1,6 +1,8 @@
 import { DEFAULT_STORY_MODEL, DEFAULT_UTILITY_MODEL } from '../engine/llm/models'
 import type { ProviderId } from '../engine/llm/types'
 import type { EndingDef, StatDef } from '../engine/progression/types'
+import type { StoryCommand } from '../engine/session/commands'
+import type { Language } from '../engine/session/options'
 
 /* ---------- Réglages ---------- */
 
@@ -82,6 +84,10 @@ export interface Story {
   startSettings: StartSetting[]
   /** Image de couverture (v0.5). */
   coverImageId?: string
+  /** Commandes propres à l'histoire (v0.6). */
+  commands?: StoryCommand[]
+  /** Langue proposée par défaut au lancement d'une partie (v0.6). */
+  defaultLanguage?: Language
   /** Histoire d'exemple fournie avec l'application. */
   isExample?: boolean
   createdAt: number

@@ -9,6 +9,8 @@ import { NarrativeView } from '../../ui/NarrativeView'
 import { PageHeader } from '../../ui/PageHeader'
 import { ImagePicker, ImagesEditor } from './ImagesEditor'
 import { ProgressionEditor } from './ProgressionEditor'
+import { cleanCommandName } from '../../engine/session/commands'
+import { LANGUAGES } from '../../engine/session/options'
 
 const NEW_ID = 'nouvelle'
 
@@ -101,6 +103,21 @@ export default function StoryEditorPage() {
           <TextField label="Titre" value={story.title} onChange={(v) => patch({ title: v })} maxLength={LIMITS.storyTitle} />
           <TextArea label="Accroche" value={story.subtitle} onChange={(v) => patch({ subtitle: v })} rows={2} hint="Une ou deux phrases affichées sur la fiche." />
           <TextField label="Tags" value={tagsText} onChange={setTagsText} placeholder="Fantasy, Mystère, Romance…" hint="Séparés par des virgules." />
+          <div>
+            <p className="mb-2 text-sm font-medium">Langue proposée par défaut</p>
+            <div className="flex gap-1 rounded-xl border border-line p-1">
+              {LANGUAGES.map((l) => (
+                <button
+                  key={l.id}
+                  type="button"
+                  onClick={() => patch({ defaultLanguage: l.id })}
+                  className={'flex-1 rounded-lg px-2 py-2 text-sm ' + ((story.defaultLanguage ?? 'fr') === l.id ? 'bg-accent text-ink' : 'text-muted')}
+                >
+                  {l.flag} {l.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </Section>
 
         <Section title="Images">
@@ -200,6 +217,34 @@ export default function StoryEditorPage() {
               />
             ))}
           </div>
+        </Section>
+
+        <Section title={`Commandes (${(story.commands ?? []).length})`}>
+          <p className="text-xs leading-relaxed text-muted">
+            Des raccourcis que le joueur tape avec « / » pendant la partie. Exemple : /Flashback → « Raconte un souvenir
+            marquant du passé du personnage du joueur ». /OOC et /GrantAlias existent déjà.
+          </p>
+          {(story.commands ?? []).map((c, i) => {
+            const commands = story.commands ?? []
+            const patchCommand = (p: Partial<typeof c>) => patch({ commands: commands.map((x, j) => (j === i ? { ...x, ...p } : x)) })
+            return (
+              <div key={i} className="space-y-3 rounded-xl border border-line bg-surface-2 p-4">
+                <TextField label="Nom" value={c.name} onChange={(v) => patchCommand({ name: cleanCommandName(v) })} placeholder="Flashback" />
+                <TextField label="Description (pour le joueur)" value={c.description} onChange={(v) => patchCommand({ description: v })} />
+                <TextArea label="Consigne pour la narratrice" value={c.instruction} onChange={(v) => patchCommand({ instruction: v })} rows={2} />
+                <Button variant="danger" onClick={() => patch({ commands: commands.filter((_, j) => j !== i) })}>
+                  Supprimer la commande
+                </Button>
+              </div>
+            )
+          })}
+          <Button
+            variant="secondary"
+            className="w-full"
+            onClick={() => patch({ commands: [...(story.commands ?? []), { name: '', description: '', instruction: '' }] })}
+          >
+            + Ajouter une commande
+          </Button>
         </Section>
 
         <Section title="Jauges et fins">

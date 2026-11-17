@@ -43,3 +43,28 @@ export function parseOocCommand(input: string): { ooc: boolean; text: string } {
   const match = /^\/ooc\b\s*([\s\S]*)$/i.exec(input.trim())
   return match ? { ooc: true, text: match[1].trim() } : { ooc: false, text: input.trim() }
 }
+
+/** Messages qui partagent le même parent (branches), du plus ancien au plus récent. */
+export function siblingsOf(messages: Message[], message: Message): Message[] {
+  return messages.filter((m) => m.parentId === message.parentId && m.sessionId === message.sessionId).sort((a, b) => a.createdAt - b.createdAt)
+}
+
+/** Dernier message d'une branche : on suit à chaque fois l'enfant le plus récent. */
+export function deepestLeaf(messages: Message[], fromId: string): string {
+  const children = new Map<string, Message[]>()
+  for (const m of messages) {
+    if (!m.parentId) continue
+    const list = children.get(m.parentId) ?? []
+    list.push(m)
+    children.set(m.parentId, list)
+  }
+  let current = fromId
+  const seen = new Set<string>()
+  while (!seen.has(current)) {
+    seen.add(current)
+    const next = (children.get(current) ?? []).sort((a, b) => b.createdAt - a.createdAt)[0]
+    if (!next) break
+    current = next.id
+  }
+  return current
+}

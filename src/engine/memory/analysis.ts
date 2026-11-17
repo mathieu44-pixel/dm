@@ -43,6 +43,7 @@ export function buildTurnAnalysisRequest(
   autoMemories: MemoryEntry[],
   stats?: StatsInput,
   sceneImages: SceneImageInput[] = [],
+  language: 'fr' | 'en' = 'fr',
 ): LlmRequest {
   const transcript = entries
     .filter((e) => !e.ooc)
@@ -94,7 +95,7 @@ export function buildTurnAnalysisRequest(
           ...extraFields.map((f, i) => (i < extraFields.length - 1 ? `${f},` : f)),
           '}',
           '',
-          `- suggestions : 3 actions courtes et variées que ${playerName} pourrait faire maintenant, à la première personne (une prudente, une audacieuse, une qui fait parler un personnage), 15 mots maximum chacune.`,
+          `- suggestions : 3 actions courtes et variées que ${playerName} pourrait faire maintenant, à la première personne (une prudente, une audacieuse, une qui fait parler un personnage), 15 mots maximum chacune${language === 'en' ? ', écrites EN ANGLAIS' : ''}.`,
           '- add : 0 à 3 informations NOUVELLES et durables apparues dans les derniers échanges. Une phrase de 20 mots maximum, à la troisième personne. N\'ajoute rien de déjà présent dans la mémoire.',
           `    • relation = ce qu'un personnage pense, ressent ou fait envers ${playerName} (confiance, méfiance, dette, attirance, colère…) ;`,
           `    • goal = un objectif en cours de ${playerName} ou une promesse à tenir ;`,

@@ -98,3 +98,28 @@ describe('buildMemoryPrompt', () => {
     expect(buildMemoryPrompt({ globalNotes: '', sessionNotes: '', memories: [], summary: '' })).toBe('')
   })
 })
+
+describe('réglages de partie et commandes', () => {
+  it('ajoute langue, longueur, style et surnoms aux consignes dynamiques', () => {
+    const prompt = buildMemoryPrompt({
+      globalNotes: '',
+      sessionNotes: '',
+      memories: [],
+      summary: '',
+      language: 'Écris en anglais.',
+      length: 'Réponses courtes.',
+      style: 'Ton léger.',
+      aliases: ['La Dague Muette'],
+    })
+    expect(prompt).toContain('Écris en anglais.')
+    expect(prompt).toContain('Longueur : Réponses courtes.')
+    expect(prompt).toContain("Style d'écriture : Ton léger.")
+    expect(prompt).toContain('La Dague Muette')
+  })
+
+  it('développe les commandes personnalisées dans l\'historique', () => {
+    const commands = [{ name: 'Flashback', description: '', instruction: 'Raconte un souvenir.' }]
+    const history = buildHistory([entry('ai', 'Prologue'), entry('user', '/flashback enfance')], 60_000, -1, commands)
+    expect(history[2].content).toBe('[Commande /Flashback : Raconte un souvenir.]\nenfance')
+  })
+})

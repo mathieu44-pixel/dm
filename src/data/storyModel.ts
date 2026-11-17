@@ -120,6 +120,16 @@ export function validateStory(story: Story, characters: Character[]): string[] {
   characters.forEach((c, i) => {
     if (!c.name.trim()) errors.push(`Le personnage n°${i + 1} n'a pas de nom.`)
   })
+  const reserved = new Set(['ooc', 'grantalias'])
+  const seenCommands = new Set<string>()
+  ;(story.commands ?? []).forEach((c, i) => {
+    const key = c.name.toLowerCase()
+    if (!c.name) errors.push(`La commande n°${i + 1} n'a pas de nom.`)
+    else if (reserved.has(key)) errors.push(`La commande /${c.name} existe déjà dans l'application.`)
+    else if (seenCommands.has(key)) errors.push(`Deux commandes s'appellent /${c.name}.`)
+    if (c.name && !c.instruction.trim()) errors.push(`La commande /${c.name} n'a pas de consigne.`)
+    seenCommands.add(key)
+  })
   const names = characters.map((c) => c.name.trim().toLowerCase()).filter(Boolean)
   if (new Set(names).size !== names.length) errors.push('Deux personnages portent le même nom.')
   return errors

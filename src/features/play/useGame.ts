@@ -23,12 +23,12 @@ import { buildSummaryRequest, planSummary, summaryIndex } from '../../engine/mem
 import { applyDeltas, describeStat, findTriggeredEnding, initStats } from '../../engine/progression/rules'
 import { buildHistory, buildMemoryPrompt, buildSystemPrompt, CONTINUE_INSTRUCTION, HISTORY_CHAR_BUDGET, type StoryContext } from '../../engine/prompt/storyPrompt'
 import { parseNarrative } from '../../engine/parser/narrative'
-import { getThread, parseOocCommand, toEntries } from '../../engine/session/thread'
+import { buildAliasRequest, parseAlias } from '../../engine/prompt/alias'
+import { parseCommand } from '../../engine/session/commands'
+import { languageInstruction, lengthOption, styleInstruction } from '../../engine/session/options'
+import { deepestLeaf, getThread, siblingsOf, toEntries } from '../../engine/session/thread'
 import { findPortrait } from '../../ui/NarrativeView'
 import type { Message, ThreadEntry } from '../../engine/session/types'
-
-/** Longueur maximale d'une réponse de la narratrice (marge pour les modèles qui « réfléchissent »). */
-const STORY_MAX_TOKENS = 2048
 
 export type Streaming =
   | { mode: 'reply'; text: string }
@@ -76,6 +76,7 @@ export function useGame(sessionId: string | undefined) {
       characters: data.characters,
       avatar: data.session.avatar,
       statDefs,
+      commands: data.story.commands ?? [],
     }
   }, [data, statDefs])
 
@@ -85,7 +86,9 @@ export function useGame(sessionId: string | undefined) {
       if (!settings || !context) throw new Error('Partie non chargée.')
       const active = activeProvider(settings)
       const covered = summaryIndex(entries, data?.session.summary)
-      const messages = buildHistory(entries, HISTORY_CHAR_BUDGET, covered)
+      const messages = buildHistory(entries, HISTORY_CHAR_BUDGET, covered, data?.story.commands ?? [])
+      const session = data?.session
+      const length = lengthOption(session?.length)
       if (extra) messages.push({ role: 'user', content: extra })
       const systemDynamic = buildMemoryPrompt({
         globalNotes: globalNotes ?? '',
@@ -93,6 +96,10 @@ export function useGame(sessionId: string | undefined) {
         memories: memories ?? [],
         summary: covered >= 1 ? (data?.session.summary?.text ?? '') : '',
         statLines: statDefs.map((d) => describeStat(d, statValues[d.id])),
+        language: languageInstruction(session?.language),
+        length: length.instruction,
+        style: styleInstruction(session?.writingStyle, session?.customStyle),
+        aliases: session?.aliases ?? [],
       })
       const controller = new AbortController()
       abortRef.current = controller
@@ -103,7 +110,7 @@ export function useGame(sessionId: string | undefined) {
           system: buildSystemPrompt(context),
           systemDynamic,
           messages,
-          maxTokens: STORY_MAX_TOKENS,
+          maxTokens: length.maxTokens,
           signal: controller.signal,
           cacheSystem: true,
         },
@@ -168,6 +175,7 @@ export function useGame(sessionId: string | undefined) {
             auto,
             statDefs.length ? { defs: statDefs, values } : undefined,
             sceneImages,
+            data.session.language ?? 'fr',
           ),
         )
         const analysis = parseTurnAnalysis(result.text, auto, statDefs, sceneImages)
@@ -241,17 +249,48 @@ export function useGame(sessionId: string | undefined) {
     [data, generate, refreshSuggestions],
   )
 
+  /** Commande /GrantAlias : un nouveau surnom pour le personnage du joueur. */
+  const grantAlias = useCallback(async () => {
+    if (!data || !settings) return
+    const active = activeProvider(settings)
+    const leaf = thread[thread.length - 1]
+    const user = await appendMessage(data.session, 'user', { content: '/GrantAlias', createdAt: Date.now() }, { ooc: true, parentId: leaf?.id ?? null })
+    setError(null)
+    setStreaming({ mode: 'reply', text: '' })
+    try {
+      const existing = data.session.aliases ?? []
+      const result = await createProvider(active.provider, active.apiKey).complete(
+        buildAliasRequest(active.utilityModel, data.session.avatar?.name || 'le joueur', toEntries(thread), existing, data.session.language),
+      )
+      const alias = parseAlias(result.text)
+      if (!alias) throw new Error("L'IA n'a pas proposé de surnom exploitable. Réessaie.")
+      const text = `Nouveau surnom : « ${alias.alias} »${alias.reason ? `\n${alias.reason}` : ''}`
+      await appendMessage(data.session, 'ai', { content: text, createdAt: Date.now(), model: active.utilityModel, costUsd: result.costUsd }, { ooc: true, parentId: user.id })
+      await patchSession(data.session.id, { aliases: [...existing, alias.alias] })
+      await addCostAndTurn(data.session.id, result.costUsd)
+    } catch (err) {
+      fail(err)
+    } finally {
+      setStreaming(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, settings, thread])
+
   const send = useCallback(
     async (input: string) => {
       if (!data || busy) return
-      const { ooc, text } = parseOocCommand(input)
+      const command = parseCommand(input, data.story.commands ?? [])
+      if (command.kind === 'alias') return grantAlias()
+      const ooc = command.kind === 'ooc'
+      // Une commande personnalisée est enregistrée telle quelle (« /Flashback … ») et développée à l'envoi.
+      const text = command.kind === 'custom' ? input.trim() : command.text
       if (!text) return
       const leaf = thread[thread.length - 1]
       const user = await appendMessage(data.session, 'user', { content: text, createdAt: Date.now() }, { ooc, parentId: leaf?.id ?? null })
       await patchSession(data.session.id, { suggestions: [] })
       await replyTo(user, [...toEntries(thread), { id: user.id, role: 'user', ooc, content: text }])
     },
-    [data, busy, thread, replyTo],
+    [data, busy, thread, replyTo, grantAlias],
   )
 
   const regenerate = useCallback(
@@ -330,6 +369,36 @@ export function useGame(sessionId: string | undefined) {
     [data, busy],
   )
 
+  /** Repart d'un message passé : la suite actuelle est conservée et reste accessible comme une autre branche. */
+  const branchFrom = useCallback(
+    async (message: Message) => {
+      if (!data || busy) return
+      await patchSession(data.session.id, { activeLeafId: message.id, suggestions: [] })
+    },
+    [data, busy],
+  )
+
+  /** Passe à la branche voisine (précédente ou suivante) d'un message. */
+  const switchBranch = useCallback(
+    async (message: Message, direction: -1 | 1) => {
+      if (!data || busy) return
+      const siblings = siblingsOf(data.messages, message)
+      const target = siblings[siblings.findIndex((m) => m.id === message.id) + direction]
+      if (!target) return
+      await patchSession(data.session.id, { activeLeafId: deepestLeaf(data.messages, target.id), suggestions: [] })
+    },
+    [data, busy],
+  )
+
+  const branchInfo = useCallback(
+    (message: Message) => {
+      if (!data) return { index: 0, count: 1 }
+      const siblings = siblingsOf(data.messages, message)
+      return { index: siblings.findIndex((m) => m.id === message.id), count: siblings.length }
+    },
+    [data],
+  )
+
   const stop = useCallback(() => abortRef.current?.abort(), [])
 
   return {
@@ -351,6 +420,9 @@ export function useGame(sessionId: string | undefined) {
     editMessage,
     deleteMessage,
     selectVariant,
+    branchFrom,
+    switchBranch,
+    branchInfo,
     stop,
   }
 }

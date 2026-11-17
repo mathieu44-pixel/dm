@@ -5,9 +5,11 @@ import { deleteSession, patchSession } from '../../data/sessions'
 import { useSettings } from '../../data/settings'
 import { activeProvider } from '../../data/settingsModel'
 import { formatUsd } from '../../engine/llm/models'
-import { activeContent, type Message } from '../../engine/session/types'
+import { activeContent, type Message, type Session } from '../../engine/session/types'
 import { Button } from '../../ui/Button'
-import { IconContinue, IconEdit, IconNext, IconPrev, IconRegenerate, IconTrash } from '../../ui/icons'
+import { IconBranch, IconContinue, IconEdit, IconNext, IconPrev, IconRegenerate, IconTrash } from '../../ui/icons'
+import { BUILTIN_COMMANDS } from '../../engine/session/commands'
+import { LANGUAGES, LENGTHS, STYLES, lengthOption } from '../../engine/session/options'
 import { NarrativeView } from '../../ui/NarrativeView'
 import { StoredImage } from '../../ui/StoredImage'
 import { EndingCard } from '../progression/EndingCard'
@@ -125,6 +127,10 @@ export default function GamePage() {
                 key={message.id}
                 message={message}
                 canEdit={!busy}
+                isLast={isLast}
+                branch={game.branchInfo(message)}
+                onBranch={() => game.branchFrom(message)}
+                onSwitchBranch={(d) => game.switchBranch(message, d)}
                 onEdit={() => setEditing({ message, text: content })}
                 onDelete={() => {
                   if (window.confirm('Supprimer ce message et toute la suite ?')) void game.deleteMessage(message)
@@ -152,6 +158,9 @@ export default function GamePage() {
                 <AiActions
                   message={message}
                   isLast={isLast}
+                  branch={game.branchInfo(message)}
+                  onBranch={() => game.branchFrom(message)}
+                  onSwitchBranch={(d) => game.switchBranch(message, d)}
                   onRegenerate={() => game.regenerate(message)}
                   onContinue={() => game.continueMessage(message)}
                   onEdit={() => setEditing({ message, text: content })}
@@ -230,19 +239,26 @@ export default function GamePage() {
       {/* Saisie */}
       <footer className="sticky bottom-0 border-t border-line bg-ink/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
         {commandsOpen && (
-          <div className="mb-2 rounded-xl border border-line bg-surface p-2 text-sm">
-            <button
-              type="button"
-              className="block w-full rounded-lg px-3 py-2 text-left hover:bg-surface-2"
-              onClick={() => {
-                setInput('/OOC ')
-                setCommandsOpen(false)
-                inputRef.current?.focus()
-              }}
-            >
-              <span className="font-mono text-accent">/OOC</span>
-              <span className="block text-xs text-muted">Parler à l'IA hors de l'histoire : corriger, demander un résumé, orienter la suite…</span>
-            </button>
+          <div className="mb-2 max-h-64 overflow-y-auto rounded-xl border border-line bg-surface p-2 text-sm">
+            {[...BUILTIN_COMMANDS, ...(data.story.commands ?? [])].map((c) => (
+              <button
+                key={c.name}
+                type="button"
+                className="block w-full rounded-lg px-3 py-2 text-left hover:bg-surface-2"
+                onClick={() => {
+                  setCommandsOpen(false)
+                  if (c.name === 'GrantAlias') {
+                    void submit('/GrantAlias')
+                    return
+                  }
+                  setInput(`/${c.name} `)
+                  inputRef.current?.focus()
+                }}
+              >
+                <span className="font-mono text-accent">/{c.name}</span>
+                {c.description && <span className="block text-xs text-muted">{c.description}</span>}
+              </button>
+            ))}
           </div>
         )}
         <div className="flex items-end gap-2 rounded-2xl border border-line bg-surface p-2">
@@ -298,6 +314,7 @@ export default function GamePage() {
             <Row label="Tours joués" value={String(session.turn)} />
             <Row label="Coût estimé" value={formatUsd(session.costUsd)} />
             {settings && <Row label="Modèle" value={activeProvider(settings).storyModel} />}
+            {(session.aliases?.length ?? 0) > 0 && <Row label="Surnoms" value={session.aliases!.join(', ')} />}
             {game.endings.length > 0 && (
               <Row label="Fins atteintes" value={`${session.endingsReached?.length ?? 0}/${game.endings.length}`} />
             )}
@@ -314,6 +331,7 @@ export default function GamePage() {
               </button>
             </span>
           </div>
+          <SessionOptions session={session} />
           <div className="flex items-center justify-between rounded-xl bg-surface-2 px-4 py-3 text-sm">
             <span className="text-muted">Images de scène</span>
             <button
@@ -349,7 +367,8 @@ export default function GamePage() {
           <div className="space-y-2 rounded-xl bg-surface-2 p-3 text-xs leading-relaxed text-muted">
             <p className="font-medium text-text">Guide</p>
             <p>• Écris tes paroles normalement et tes actions entre *astérisques* (bouton *).</p>
-            <p>• /OOC + message pour parler à l'IA hors de l'histoire.</p>
+            <p>• Bouton / : commandes (/OOC pour parler à l'IA hors de l'histoire, /GrantAlias pour un surnom, et celles de l'histoire).</p>
+            <p>• Bouton branche sous un message passé : repartir de là sans perdre la suite ; flèches ‹ › dorées pour passer d'une branche à l'autre.</p>
             <p>• Sous chaque réponse : régénérer (flèche circulaire), continuer (double chevron), modifier (crayon), supprimer (corbeille), et flèches ‹ › pour changer de version.</p>
           </div>
           <Button variant="danger" className="w-full" onClick={removeSession}>
@@ -397,11 +416,19 @@ export default function GamePage() {
 function UserBubble({
   message,
   canEdit,
+  isLast,
+  branch,
+  onBranch,
+  onSwitchBranch,
   onEdit,
   onDelete,
 }: {
   message: Message
   canEdit: boolean
+  isLast: boolean
+  branch: { index: number; count: number }
+  onBranch: () => void
+  onSwitchBranch: (direction: -1 | 1) => void
   onEdit: () => void
   onDelete: () => void
 }) {
@@ -413,7 +440,13 @@ function UserBubble({
         <FormattedPlayerText text={content} />
       </div>
       {canEdit && (
-        <div className="mt-1 flex gap-1 text-muted">
+        <div className="mt-1 flex items-center gap-1 text-muted">
+          <BranchSwitcher branch={branch} onSwitch={onSwitchBranch} />
+          {!isLast && (
+            <IconButton label="Repartir d'ici (nouvelle branche)" onClick={onBranch}>
+              <IconBranch />
+            </IconButton>
+          )}
           <IconButton label="Modifier" onClick={onEdit}>
             <IconEdit />
           </IconButton>
@@ -456,6 +489,9 @@ function OocText({ text }: { text: string }) {
 function AiActions({
   message,
   isLast,
+  branch,
+  onBranch,
+  onSwitchBranch,
   onRegenerate,
   onContinue,
   onEdit,
@@ -464,6 +500,9 @@ function AiActions({
 }: {
   message: Message
   isLast: boolean
+  branch: { index: number; count: number }
+  onBranch: () => void
+  onSwitchBranch: (direction: -1 | 1) => void
   onRegenerate: () => void
   onContinue: () => void
   onEdit: () => void
@@ -474,6 +513,7 @@ function AiActions({
   const count = message.variants.length
   return (
     <div className="mt-2 flex flex-wrap items-center gap-1 text-muted">
+      <BranchSwitcher branch={branch} onSwitch={onSwitchBranch} />
       {count > 1 && (
         <span className="mr-1 flex items-center rounded-full border border-line text-xs">
           <IconButton label="Version précédente" onClick={() => onVariant(message.activeVariant - 1)} disabled={message.activeVariant === 0}>
@@ -490,6 +530,11 @@ function AiActions({
       {!isPrologue && (
         <IconButton label="Régénérer" onClick={onRegenerate}>
           <IconRegenerate />
+        </IconButton>
+      )}
+      {!isLast && (
+        <IconButton label="Repartir d'ici (nouvelle branche)" onClick={onBranch}>
+          <IconBranch />
         </IconButton>
       )}
       {isLast && !message.ooc && (
@@ -568,6 +613,84 @@ export function ImageViewer({ id, onClose }: { id: string; onClose: () => void }
       <button type="button" aria-label="Fermer" className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] h-11 w-11 rounded-full bg-black/60 text-xl text-white">
         ✕
       </button>
+    </div>
+  )
+}
+
+/** Navigation entre branches (« Branche 2/3 ‹ › »), visible seulement s'il en existe plusieurs. */
+function BranchSwitcher({ branch, onSwitch }: { branch: { index: number; count: number }; onSwitch: (direction: -1 | 1) => void }) {
+  if (branch.count < 2) return null
+  return (
+    <span className="mr-1 flex items-center rounded-full border border-accent/50 text-xs text-accent" title="Branches">
+      <IconButton label="Branche précédente" onClick={() => onSwitch(-1)} disabled={branch.index <= 0}>
+        <IconPrev />
+      </IconButton>
+      <span className="flex items-center gap-1">
+        <IconBranch />
+        {branch.index + 1}/{branch.count}
+      </span>
+      <IconButton label="Branche suivante" onClick={() => onSwitch(1)} disabled={branch.index >= branch.count - 1}>
+        <IconNext />
+      </IconButton>
+    </span>
+  )
+}
+
+/** Réglages de la partie : longueur, style d'écriture, langue (comme « Length & Depth » et « Writing Style » d'OOC). */
+function SessionOptions({ session }: { session: Session }) {
+  const length = lengthOption(session.length).id
+  const style = session.writingStyle ?? 'story'
+  const language = session.language ?? 'fr'
+  const [custom, setCustom] = useState(session.customStyle ?? '')
+  const segment = (active: boolean) =>
+    'flex-1 rounded-lg px-2 py-2 text-xs transition ' + (active ? 'bg-accent text-ink' : 'text-muted')
+
+  return (
+    <div className="space-y-3 rounded-xl bg-surface-2 p-4 text-sm">
+      <div>
+        <p className="mb-2 text-muted">Longueur des réponses</p>
+        <div className="flex gap-1 rounded-xl border border-line p-1">
+          {LENGTHS.map((l) => (
+            <button key={l.id} type="button" className={segment(length === l.id)} onClick={() => patchSession(session.id, { length: l.id })}>
+              {l.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <label className="block">
+        <span className="mb-2 block text-muted">Style d'écriture</span>
+        <select
+          value={style}
+          onChange={(e) => patchSession(session.id, { writingStyle: e.target.value })}
+          className="min-h-11 w-full rounded-xl border border-line bg-ink px-3 text-sm outline-none focus:border-accent"
+        >
+          {STYLES.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {style === 'custom' && (
+        <textarea
+          value={custom}
+          onChange={(e) => setCustom(e.target.value)}
+          onBlur={() => patchSession(session.id, { customStyle: custom.trim() })}
+          rows={3}
+          placeholder="Décris le style voulu : ton, rythme, vocabulaire…"
+          className="w-full rounded-xl border border-line bg-ink p-3 text-sm outline-none focus:border-accent"
+        />
+      )}
+      <div>
+        <p className="mb-2 text-muted">Langue de jeu</p>
+        <div className="flex gap-1 rounded-xl border border-line p-1">
+          {LANGUAGES.map((l) => (
+            <button key={l.id} type="button" className={segment(language === l.id)} onClick={() => patchSession(session.id, { language: l.id })}>
+              {l.flag} {l.label}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { useSessionSummaries } from '../../data/history'
 import { createSession, useSessionsForStory } from '../../data/sessions'
 import { deleteStory, useAvatars, useDefaultAvatarId, useStory } from '../../data/stories'
 import type { Story } from '../../data/types'
+import { LANGUAGES, type Language } from '../../engine/session/options'
 import { Button } from '../../ui/Button'
 import { NarrativeView } from '../../ui/NarrativeView'
 import { PageHeader } from '../../ui/PageHeader'
@@ -161,11 +162,12 @@ function StartSheet({ story, onClose }: { story: Story; onClose: () => void }) {
   const defaultId = useDefaultAvatarId()
   const [avatarId, setAvatarId] = useState<string | null | undefined>(undefined)
   const [startId, setStartId] = useState(story.startSettings[0]?.id)
+  const [language, setLanguage] = useState<Language>(story.defaultLanguage ?? 'fr')
   const chosenAvatar = avatarId === undefined ? (defaultId ?? null) : avatarId
 
   const start = async () => {
     const avatar = avatars?.find((a) => a.id === chosenAvatar) ?? null
-    const sessionId = await createSession(story, startId, avatar)
+    const sessionId = await createSession(story, startId, avatar, language)
     navigate(`/partie/${sessionId}`)
   }
 
@@ -209,6 +211,22 @@ function StartSheet({ story, onClose }: { story: Story; onClose: () => void }) {
           <Link to="/avatars" className="block text-xs text-accent underline">
             Créer ou modifier mes avatars
           </Link>
+        </fieldset>
+
+        <fieldset>
+          <legend className="mb-2 text-sm font-medium">Langue de jeu</legend>
+          <div className="flex gap-1 rounded-xl border border-line p-1">
+            {LANGUAGES.map((l) => (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() => setLanguage(l.id)}
+                className={'flex-1 rounded-lg px-2 py-2 text-sm ' + (language === l.id ? 'bg-accent text-ink' : 'text-muted')}
+              >
+                {l.flag} {l.label}
+              </button>
+            ))}
+          </div>
         </fieldset>
 
         {story.startSettings.length > 1 && (

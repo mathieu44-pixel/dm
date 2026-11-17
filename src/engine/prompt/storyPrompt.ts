@@ -1,6 +1,7 @@
 import type { ChatMessage } from '../llm/types'
 import { MEMORY_LABELS, type MemoryEntry } from '../memory/types'
 import type { StatDef } from '../progression/types'
+import { expandCustomCommand, type StoryCommand } from '../session/commands'
 import type { AvatarSnapshot, ThreadEntry } from '../session/types'
 
 /**
@@ -27,6 +28,8 @@ export interface StoryContext {
   avatar: AvatarSnapshot | null
   /** Jauges du point de départ (v0.4). */
   statDefs?: StatDef[]
+  /** Commandes propres à l'histoire (v0.6). */
+  commands?: StoryCommand[]
 }
 
 /** Marqueurs hors-jeu insérés dans l'historique envoyé à l'IA. */
@@ -92,6 +95,12 @@ export function buildSystemPrompt(ctx: StoryContext): string {
     section('Personnages', ctx.characters.map(describeCharacter).join('\n\n')),
     section('Personnage du joueur', avatar),
     section(
+      'Commandes du joueur',
+      (ctx.commands ?? []).length
+        ? 'Quand un message du joueur commence par [Commande /Nom : consigne], applique la consigne dans ta réponse, sans quitter le format narratif.'
+        : '',
+    ),
+    section(
       'Jauges de la partie',
       (ctx.statDefs ?? [])
         .map((d) => `- ${d.name} (de ${d.min} à ${d.max})${d.rulesText ? ` : ${d.rulesText}` : ''}`)
@@ -112,6 +121,11 @@ export interface MemoryContext {
   summary: string
   /** État des jauges, déjà formulé (« Confiance : 40/100 (méfiante) »). */
   statLines?: string[]
+  /** Réglages de la partie (v0.6). */
+  language?: string
+  length?: string
+  style?: string
+  aliases?: string[]
 }
 
 /**
@@ -131,6 +145,17 @@ export function buildMemoryPrompt(memory: MemoryContext): string {
     section('Mémoire de la partie', auto.map((m) => `- ${MEMORY_LABELS[m.kind]} : ${m.text}`).join('\n')),
     section("Résumé de l'histoire jusqu'ici", memory.summary),
     section('État actuel des jauges', (memory.statLines ?? []).map((l) => `- ${l}`).join('\n')),
+    section(
+      'Réglages de la partie (prioritaires sur le style de l\'histoire)',
+      [
+        memory.language,
+        memory.length && `Longueur : ${memory.length}`,
+        memory.style && `Style d'écriture : ${memory.style}`,
+        memory.aliases?.length && `Surnoms du personnage du joueur, que les personnages peuvent employer : ${memory.aliases.join(', ')}.`,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    ),
   ]
     .filter(Boolean)
     .join('\n\n')
@@ -143,9 +168,10 @@ function pushMerged(messages: ChatMessage[], message: ChatMessage) {
   else messages.push({ ...message })
 }
 
-export function entryToMessage(entry: ThreadEntry): ChatMessage {
+export function entryToMessage(entry: ThreadEntry, commands: StoryCommand[] = []): ChatMessage {
   const role = entry.role === 'user' ? 'user' : 'assistant'
-  return { role, content: entry.ooc ? `${OOC_PREFIX} ${entry.content}` : entry.content }
+  if (entry.ooc) return { role, content: `${OOC_PREFIX} ${entry.content}` }
+  return { role, content: role === 'user' ? expandCustomCommand(entry.content, commands) : entry.content }
 }
 
 /**
@@ -153,7 +179,12 @@ export function entryToMessage(entry: ThreadEntry): ChatMessage {
  * « la partie commence » car les API exigent de commencer par l'utilisateur.
  * Au-delà du budget, les messages les plus anciens (hors prologue) sont retirés.
  */
-export function buildHistory(entries: ThreadEntry[], budget = HISTORY_CHAR_BUDGET, summarizedUntil = -1): ChatMessage[] {
+export function buildHistory(
+  entries: ThreadEntry[],
+  budget = HISTORY_CHAR_BUDGET,
+  summarizedUntil = -1,
+  commands: StoryCommand[] = [],
+): ChatMessage[] {
   if (entries.length === 0) return [{ role: 'user', content: START_MARKER }]
 
   const [first, ...others] = entries
@@ -177,7 +208,7 @@ export function buildHistory(entries: ThreadEntry[], budget = HISTORY_CHAR_BUDGE
 
   const messages = head
   if (skipped > 0) pushMerged(messages, { role: 'user', content: `[${skipped} messages plus anciens ont été omis.]` })
-  for (const entry of kept) pushMerged(messages, entryToMessage(entry))
+  for (const entry of kept) pushMerged(messages, entryToMessage(entry, commands))
   return messages
 }
 

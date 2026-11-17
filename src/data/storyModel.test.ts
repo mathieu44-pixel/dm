@@ -93,3 +93,21 @@ describe('validateStory (jauges et fins)', () => {
     expect(conditionStatIds({ op: 'AND', items: [{ type: 'turn', gte: 1 }, { op: 'OR', items: [{ type: 'stat', statId: 'a', cmp: '<', value: 1 }] }] })).toEqual(['a'])
   })
 })
+
+describe('validateStory (commandes)', () => {
+  it('refuse les noms réservés, les doublons et les consignes vides', () => {
+    const story = newStory()
+    story.title = 'T'
+    story.worldLore = 'M'
+    story.startSettings[0].prologue = 'P'
+    story.commands = [
+      { name: 'OOC', description: '', instruction: 'x' },
+      { name: 'Rêve', description: '', instruction: 'x' },
+      { name: 'rêve', description: '', instruction: '' },
+    ]
+    const errors = validateStory(story, [])
+    expect(errors).toContain("La commande /OOC existe déjà dans l'application.")
+    expect(errors).toContain("Deux commandes s'appellent /rêve.")
+    expect(errors).toContain("La commande /rêve n'a pas de consigne.")
+  })
+})

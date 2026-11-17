@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { initStats } from '../engine/progression/rules'
+import type { Language } from '../engine/session/options'
 import { descendantIds } from '../engine/session/thread'
 import type { Message, MessageVariant, Session } from '../engine/session/types'
 import { db } from './db'
@@ -51,7 +52,12 @@ export async function loadSession(id: string): Promise<Session | undefined> {
 /* ---------- Création ---------- */
 
 /** Crée une partie : le prologue devient le premier message de l'IA. */
-export async function createSession(story: Story, startSettingId: string, avatar: Avatar | null): Promise<string> {
+export async function createSession(
+  story: Story,
+  startSettingId: string,
+  avatar: Avatar | null,
+  language: Language = story.defaultLanguage ?? 'fr',
+): Promise<string> {
   const start = story.startSettings.find((s) => s.id === startSettingId) ?? story.startSettings[0]
   const now = Date.now()
   const sessionId = newId()
@@ -76,6 +82,7 @@ export async function createSession(story: Story, startSettingId: string, avatar
     costUsd: 0,
     suggestions: start.initialSuggestions,
     stats: initStats(start.stats ?? []),
+    language,
     endingsReached: [],
     createdAt: now,
     lastPlayedAt: now,

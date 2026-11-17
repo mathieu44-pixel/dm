@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { descendantIds, getThread, parseOocCommand, toEntries } from './thread'
+import { deepestLeaf, descendantIds, getThread, parseOocCommand, siblingsOf, toEntries } from './thread'
 import type { Message } from './types'
 
 function msg(id: string, parentId: string | null, role: 'user' | 'ai' = 'ai', content = id): Message {
@@ -49,5 +49,20 @@ describe('parseOocCommand', () => {
   it('laisse passer un message normal', () => {
     expect(parseOocCommand('Je frappe à la porte')).toEqual({ ooc: false, text: 'Je frappe à la porte' })
     expect(parseOocCommand('/oocasion')).toEqual({ ooc: false, text: '/oocasion' })
+  })
+})
+
+describe('branches', () => {
+  const at = (id: string, parentId: string | null, createdAt: number): Message => ({ ...msg(id, parentId), createdAt })
+  const messages = [at('a', null, 0), at('b1', 'a', 1), at('c1', 'b1', 2), at('b2', 'a', 3), at('c2', 'b2', 4), at('d2', 'c2', 5)]
+
+  it('liste les branches sœurs dans l\'ordre de création', () => {
+    expect(siblingsOf(messages, messages[3]).map((m) => m.id)).toEqual(['b1', 'b2'])
+  })
+
+  it('trouve le bout de la branche la plus récente', () => {
+    expect(deepestLeaf(messages, 'b1')).toBe('c1')
+    expect(deepestLeaf(messages, 'b2')).toBe('d2')
+    expect(deepestLeaf(messages, 'a')).toBe('d2')
   })
 })

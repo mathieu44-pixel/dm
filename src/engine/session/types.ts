@@ -1,5 +1,6 @@
 import type { SessionSummary } from '../memory/types'
 import type { ReachedEnding } from '../progression/types'
+import type { Language, ResponseLength } from './options'
 
 /** Une version d'un message (régénérer crée une nouvelle variante). */
 export interface MessageVariant {
@@ -61,6 +62,15 @@ export interface Session {
   unlockedImageIds?: string[]
   /** Afficher les images de scène (par défaut : oui). */
   showImages?: boolean
+  /** Longueur des réponses (v0.6). */
+  length?: ResponseLength
+  /** Style d'écriture : identifiant de STYLES, ou « custom ». */
+  writingStyle?: string
+  customStyle?: string
+  /** Langue de jeu (v0.6). */
+  language?: Language
+  /** Surnoms reçus avec /GrantAlias. */
+  aliases?: string[]
   createdAt: number
   lastPlayedAt: number
 }
