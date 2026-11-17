@@ -2,20 +2,41 @@ import { useState } from 'react'
 import { statLevel } from '../../engine/progression/rules'
 import type { StatDef } from '../../engine/progression/types'
 
-/** Jauges affichées en haut de l'écran de jeu, repliables. */
+/**
+ * Jauges toujours visibles sous l'en-tête du jeu.
+ * Repliées : une ligne compacte (icône + mini-barre). Dépliées : nom, niveau et barre.
+ */
 export function StatsBar({ defs, values }: { defs: StatDef[]; values: Record<string, number> }) {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
   if (!defs.length) return null
 
   return (
-    <div className="border-b border-line bg-ink/95 px-4 py-2">
+    <div className="border-b border-line px-4 py-2">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between text-xs text-muted"
+        className="flex w-full items-center gap-3 text-xs text-muted"
         aria-expanded={open}
+        aria-label={open ? 'Replier les jauges' : 'Afficher le détail des jauges'}
       >
-        <span>Jauges</span>
+        {open ? (
+          <span className="flex-1 text-left">Jauges</span>
+        ) : (
+          <span className="flex flex-1 items-center gap-3 overflow-hidden">
+            {defs.map((d) => {
+              const value = values[d.id] ?? d.initial
+              const ratio = (value - d.min) / (d.max - d.min || 1)
+              return (
+                <span key={d.id} className="flex min-w-0 flex-1 items-center gap-1.5" title={`${d.name} : ${value}`}>
+                  <span className="shrink-0">{d.icon || '•'}</span>
+                  <span className="h-1.5 min-w-6 flex-1 overflow-hidden rounded-full bg-surface-2">
+                    <span className="block h-full rounded-full transition-all duration-700" style={{ width: `${Math.round(ratio * 100)}%`, background: d.color }} />
+                  </span>
+                </span>
+              )
+            })}
+          </span>
+        )}
         <span>{open ? '▴' : '▾'}</span>
       </button>
       {open && (

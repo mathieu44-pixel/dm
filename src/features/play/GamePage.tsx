@@ -77,7 +77,8 @@ export default function GamePage() {
   return (
     <div className="flex min-h-full flex-col">
       {/* En-tête */}
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-line bg-ink/95 px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur">
+      <div className="sticky top-0 z-10 bg-ink/95 backdrop-blur">
+      <header className="flex items-center gap-2 border-b border-line px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
         <button
           type="button"
           aria-label="Retour"
@@ -96,8 +97,8 @@ export default function GamePage() {
           ☰
         </button>
       </header>
-
       <StatsBar defs={game.statDefs} values={game.statValues} />
+      </div>
 
       {!game.ready && (
         <Link to="/reglages" className="m-4 rounded-xl border border-accent/40 bg-accent-soft p-3 text-sm">
