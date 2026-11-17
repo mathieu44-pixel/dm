@@ -31,6 +31,19 @@ export function useSessionData(sessionId: string | undefined) {
   }, [sessionId])
 }
 
+/**
+ * Met à jour la date de dernière partie d'une histoire.
+ * (Forme « modify » : le typage de `update` de Dexie ne supporte pas les conditions de fin, récursives.)
+ */
+async function touchStory(storyId: string, now: number): Promise<void> {
+  await db.stories
+    .where('id')
+    .equals(storyId)
+    .modify((story) => {
+      story.lastPlayedAt = now
+    })
+}
+
 export async function loadSession(id: string): Promise<Session | undefined> {
   return db.sessions.get(id)
 }
@@ -70,7 +83,7 @@ export async function createSession(story: Story, startSettingId: string, avatar
   await db.transaction('rw', db.sessions, db.messages, db.stories, async () => {
     await db.sessions.add(session)
     await db.messages.add(prologue)
-    await db.stories.update(story.id, { lastPlayedAt: now })
+    await touchStory(story.id, now)
   })
   return sessionId
 }
@@ -111,7 +124,7 @@ export async function appendMessage(
   await db.transaction('rw', db.messages, db.sessions, db.stories, async () => {
     await db.messages.add(message)
     await db.sessions.update(session.id, { activeLeafId: message.id, lastPlayedAt: now })
-    await db.stories.update(session.storyId, { lastPlayedAt: now })
+    await touchStory(session.storyId, now)
   })
   return message
 }
