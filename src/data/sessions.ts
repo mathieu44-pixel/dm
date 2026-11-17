@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { initStats } from '../engine/progression/rules'
+import { substituteVariables } from '../engine/import/sillytavern'
 import type { Language } from '../engine/session/options'
 import { descendantIds } from '../engine/session/thread'
 import type { Message, MessageVariant, Session } from '../engine/session/types'
@@ -66,7 +67,7 @@ export async function createSession(
     sessionId,
     parentId: null,
     role: 'ai',
-    variants: [{ content: start.prologue, createdAt: now }],
+    variants: [{ content: substituteVariables(start.prologue, story.title, avatar?.name || 'toi'), createdAt: now }],
     activeVariant: 0,
     createdAt: now,
   }

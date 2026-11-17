@@ -1,4 +1,7 @@
-import { Link } from 'react-router'
+import { useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router'
+import { importCharacterFile } from '../../data/importCard'
+import type { StoryMode } from '../../data/types'
 import { APP_VERSION, ROADMAP, isDelivered } from '../../app/version'
 import { useSettings } from '../../data/settings'
 import { activeProvider, isReady } from '../../data/settingsModel'
@@ -9,7 +12,29 @@ import { StoryCover } from '../../ui/StoryCover'
 /** Accueil : bibliothèque d'histoires. */
 export default function HomePage() {
   const settings = useSettings()
-  const stories = useStories()
+  const allStories = useStories()
+  const navigate = useNavigate()
+  const [mode, setMode] = useState<StoryMode>(() => (sessionStorage.getItem('dm-home-mode') === 'character' ? 'character' : 'story'))
+  const [importError, setImportError] = useState<string | null>(null)
+  const [importing, setImporting] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const stories = allStories?.filter((s) => (s.mode ?? 'story') === mode)
+  const switchMode = (m: StoryMode) => {
+    setMode(m)
+    sessionStorage.setItem('dm-home-mode', m)
+  }
+  const importFile = async (file: File) => {
+    setImporting(true)
+    setImportError(null)
+    try {
+      const id = await importCharacterFile(file)
+      navigate(`/histoire/${id}`)
+    } catch (e) {
+      setImportError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setImporting(false)
+    }
+  }
   const ready = settings ? isReady(settings) : false
   const active = settings ? activeProvider(settings) : undefined
 
@@ -30,16 +55,64 @@ export default function HomePage() {
       )}
 
       <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Mes histoires</h2>
-          <Link to="/histoire/nouvelle/modifier" className="rounded-full bg-accent px-4 py-2 text-sm font-medium text-ink">
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div className="flex gap-5" role="tablist">
+            {(
+              [
+                ['story', 'Histoires'],
+                ['character', 'Personnages'],
+              ] as const
+            ).map(([m, label]) => (
+              <button
+                key={m}
+                type="button"
+                role="tab"
+                aria-selected={mode === m}
+                onClick={() => switchMode(m)}
+                className={'text-2xl font-semibold transition ' + (mode === m ? 'text-text' : 'text-muted/50')}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <Link
+            to={`/histoire/nouvelle/modifier?mode=${mode}`}
+            className="shrink-0 rounded-full bg-accent px-4 py-2 text-sm font-medium text-ink"
+          >
             + Créer
           </Link>
         </div>
 
+        {mode === 'character' && (
+          <div className="mb-4">
+            <button
+              type="button"
+              disabled={importing}
+              onClick={() => fileRef.current?.click()}
+              className="w-full rounded-xl border border-dashed border-line px-4 py-3 text-sm text-muted disabled:opacity-50"
+            >
+              {importing ? 'Import…' : '⇪ Importer une carte SillyTavern (.png ou .json)'}
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/png,application/json,.json,.png"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                e.target.value = ''
+                if (file) void importFile(file)
+              }}
+            />
+            {importError && <p className="mt-2 text-xs text-red-300">{importError}</p>}
+          </div>
+        )}
+
         {stories && stories.length === 0 && (
           <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
-            Aucune histoire pour l'instant. Crée la première !
+            {mode === 'story'
+              ? "Aucune histoire pour l'instant. Crée la première !"
+              : 'Aucun personnage : crée-en un, ou importe une carte SillyTavern, pour une conversation libre.'}
           </p>
         )}
 

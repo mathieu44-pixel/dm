@@ -123,3 +123,20 @@ describe('réglages de partie et commandes', () => {
     expect(history[2].content).toBe('[Commande /Flashback : Raconte un souvenir.]\nenfance')
   })
 })
+
+describe('mode Character', () => {
+  it('ajoute la consigne de conversation et remplace les variables SillyTavern', () => {
+    const p = buildSystemPrompt({
+      title: 'Lyra',
+      worldLore: 'Une taverne où {{user}} entre.',
+      systemPrompt: '',
+      writingRules: '',
+      characters: [{ name: 'Lyra', title: '', appearance: '', personality: '', speech: '', background: '{{char}} chante.' }],
+      avatar: { name: 'Annaelle', details: '', gift: '' },
+      mode: 'character',
+    })
+    expect(p).toContain('tu incarnes avant tout Lyra')
+    expect(p).toContain('Une taverne où Annaelle entre.')
+    expect(p).toContain('Lyra chante.')
+  })
+})

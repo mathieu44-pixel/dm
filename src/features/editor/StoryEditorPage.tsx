@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { saveStory, useStory } from '../../data/stories'
 import { LIMITS, cleanSuggestions, newCharacter, newStory, parseTags, validateStory } from '../../data/storyModel'
 import type { Character, StartSetting, Story } from '../../data/types'
@@ -20,6 +20,7 @@ export default function StoryEditorPage() {
   const isNew = id === NEW_ID
   const navigate = useNavigate()
   const existing = useStory(isNew ? undefined : id)
+  const [searchParams] = useSearchParams()
 
   const [story, setStory] = useState<Story | null>(null)
   const [characters, setCharacters] = useState<Character[]>([])
@@ -31,13 +32,19 @@ export default function StoryEditorPage() {
   useEffect(() => {
     if (story) return
     if (isNew) {
-      setStory(newStory())
+      const draft = newStory()
+      if (searchParams.get('mode') === 'character') {
+        draft.mode = 'character'
+        draft.startSettings[0].name = 'Accueil principal'
+        setCharacters([newCharacter()])
+      }
+      setStory(draft)
     } else if (existing) {
       setStory(structuredClone(existing.story))
       setCharacters(structuredClone(existing.characters))
       setTagsText(existing.story.tags.join(', '))
     }
-  }, [isNew, existing, story])
+  }, [isNew, existing, story, searchParams])
 
   if (!isNew && existing === null)
     return (
@@ -49,6 +56,7 @@ export default function StoryEditorPage() {
   if (!story) return null
 
   const patch = (p: Partial<Story>) => setStory({ ...story, ...p })
+  const isCharacter = story.mode === 'character'
   const start = story.startSettings[0]
   const patchStart = (p: Partial<StartSetting>) => patch({ startSettings: [{ ...start, ...p }, ...story.startSettings.slice(1)] })
 
@@ -99,6 +107,25 @@ export default function StoryEditorPage() {
           </ul>
         )}
 
+        <div className="flex gap-1 rounded-2xl border border-line bg-surface p-1">
+          {(
+            [
+              ['story', 'Histoire', 'Récit structuré, jauges, fins'],
+              ['character', 'Personnage', 'Conversation libre avec un personnage'],
+            ] as const
+          ).map(([m, label, hint]) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => patch({ mode: m })}
+              className={'flex-1 rounded-xl px-3 py-2 text-left ' + (story.mode === m ? 'bg-accent-soft ring-1 ring-accent' : '')}
+            >
+              <span className="block text-sm font-medium">{label}</span>
+              <span className="block text-xs text-muted">{hint}</span>
+            </button>
+          ))}
+        </div>
+
         <Section title="Présentation">
           <TextField label="Titre" value={story.title} onChange={(v) => patch({ title: v })} maxLength={LIMITS.storyTitle} />
           <TextArea label="Accroche" value={story.subtitle} onChange={(v) => patch({ subtitle: v })} rows={2} hint="Une ou deux phrases affichées sur la fiche." />
@@ -124,9 +151,9 @@ export default function StoryEditorPage() {
           <ImagesEditor storyId={story.id} coverImageId={story.coverImageId} onSetCover={(id) => patch({ coverImageId: id })} />
         </Section>
 
-        <Section title="Univers">
+        <Section title={isCharacter ? 'Scénario' : 'Univers'}>
           <TextArea
-            label="Monde, lieux, règles"
+            label={isCharacter ? 'Cadre de la conversation' : 'Monde, lieux, règles'}
             value={story.worldLore}
             onChange={(v) => patch({ worldLore: v })}
             rows={8}
@@ -151,7 +178,12 @@ export default function StoryEditorPage() {
           />
         </Section>
 
-        <Section title={`Personnages (${characters.length})`}>
+        <Section title={isCharacter ? 'Personnage incarné' : `Personnages (${characters.length})`}>
+          {isCharacter && (
+            <p className="text-xs leading-relaxed text-muted">
+              Le premier personnage de la liste est celui avec qui tu converses. Ajoute son portrait pour le voir à chaque réplique.
+            </p>
+          )}
           {characters.map((c, i) => (
             <details key={c.id} className="rounded-xl border border-line bg-surface-2" open={!c.name}>
               <summary className="flex cursor-pointer items-center justify-between gap-2 px-4 py-3">
@@ -186,10 +218,10 @@ export default function StoryEditorPage() {
           </Button>
         </Section>
 
-        <Section title="Point de départ">
+        <Section title={isCharacter ? "Message d'accueil" : 'Point de départ'}>
           <TextField label="Nom" value={start.name} onChange={(v) => patchStart({ name: v })} />
           <TextArea
-            label="Prologue"
+            label={isCharacter ? 'Premier message du personnage' : 'Prologue'}
             value={start.prologue}
             onChange={(v) => patchStart({ prologue: v })}
             rows={8}
@@ -247,9 +279,11 @@ export default function StoryEditorPage() {
           </Button>
         </Section>
 
-        <Section title="Jauges et fins">
-          <ProgressionEditor start={start} storyId={story.id} onChange={patchStart} />
-        </Section>
+        {!isCharacter && (
+          <Section title="Jauges et fins">
+            <ProgressionEditor start={start} storyId={story.id} onChange={patchStart} />
+          </Section>
+        )}
       </main>
 
       <footer className="fixed inset-x-0 bottom-0 mx-auto flex max-w-xl gap-3 border-t border-line bg-ink/95 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">

@@ -2,6 +2,7 @@ import type { ChatMessage } from '../llm/types'
 import { MEMORY_LABELS, type MemoryEntry } from '../memory/types'
 import type { StatDef } from '../progression/types'
 import { expandCustomCommand, type StoryCommand } from '../session/commands'
+import { substituteVariables } from '../import/sillytavern'
 import type { AvatarSnapshot, ThreadEntry } from '../session/types'
 
 /**
@@ -30,6 +31,8 @@ export interface StoryContext {
   statDefs?: StatDef[]
   /** Commandes propres à l'histoire (v0.6). */
   commands?: StoryCommand[]
+  /** Mode conversation avec un personnage (v0.7). */
+  mode?: 'story' | 'character'
 }
 
 /** Marqueurs hors-jeu insérés dans l'historique envoyé à l'IA. */
@@ -87,8 +90,15 @@ export function buildSystemPrompt(ctx: StoryContext): string {
         .join('\n')
     : ''
 
-  return [
+  const mainCharacter = ctx.characters[0]?.name ?? ''
+  const conversation =
+    ctx.mode === 'character' && mainCharacter
+      ? `Mode conversation : tu incarnes avant tout ${mainCharacter}. Fais-le parler et réagir de façon naturelle, vivante et cohérente avec sa personnalité ; garde la narration brève. Les autres personnages n'interviennent que si la scène l'exige.`
+      : ''
+
+  const prompt = [
     formatRules(playerName),
+    conversation,
     section(`Histoire : ${ctx.title}`, ''),
     section('Univers', ctx.worldLore),
     section('Consignes de l\'autrice', ctx.systemPrompt),
@@ -113,6 +123,8 @@ export function buildSystemPrompt(ctx: StoryContext): string {
   ]
     .filter(Boolean)
     .join('\n\n')
+  // Variables des cartes SillyTavern importées.
+  return substituteVariables(prompt, mainCharacter || 'le personnage', ctx.avatar?.name.trim() || 'le joueur')
 }
 
 export interface MemoryContext {

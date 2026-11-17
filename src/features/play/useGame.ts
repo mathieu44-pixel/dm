@@ -78,6 +78,7 @@ export function useGame(sessionId: string | undefined) {
       avatar: data.session.avatar,
       statDefs,
       commands: data.story.commands ?? [],
+      mode: data.story.mode,
     }
   }, [data, statDefs])
 

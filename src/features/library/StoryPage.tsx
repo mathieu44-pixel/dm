@@ -145,7 +145,7 @@ export default function StoryPage() {
           </>
         ) : (
           <button type="button" onClick={() => setStarting(true)} className="min-h-12 flex-1 rounded-xl bg-accent text-sm font-medium text-ink">
-            Jouer
+            {story.mode === 'character' ? 'Discuter' : 'Jouer'}
           </button>
         )}
       </footer>
@@ -180,7 +180,7 @@ function StartSheet({ story, onClose }: { story: Story; onClose: () => void }) {
         className="mx-auto max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-t-3xl border-t border-line bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
       >
         <div className="mx-auto h-1 w-10 rounded-full bg-line" />
-        <h2 className="text-lg font-semibold">Nouvelle partie</h2>
+        <h2 className="text-lg font-semibold">{story.mode === 'character' ? 'Nouvelle conversation' : 'Nouvelle partie'}</h2>
 
         <fieldset className="space-y-2">
           <legend className="mb-2 text-sm font-medium">Qui incarnes-tu ?</legend>
@@ -231,7 +231,7 @@ function StartSheet({ story, onClose }: { story: Story; onClose: () => void }) {
 
         {story.startSettings.length > 1 && (
           <fieldset className="space-y-2">
-            <legend className="mb-2 text-sm font-medium">Point de départ</legend>
+            <legend className="mb-2 text-sm font-medium">{story.mode === 'character' ? "Message d'accueil" : 'Point de départ'}</legend>
             {story.startSettings.map((s) => (
               <label key={s.id} className="flex items-center gap-3 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm">
                 <input type="radio" name="start" checked={startId === s.id} onChange={() => setStartId(s.id)} />
