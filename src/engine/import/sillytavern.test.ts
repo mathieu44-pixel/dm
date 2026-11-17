@@ -21,7 +21,7 @@ const v2 = {
 }
 
 async function deflate(data: Uint8Array): Promise<Uint8Array> {
-  const stream = new Blob([data]).stream().pipeThrough(new CompressionStream('deflate'))
+  const stream = new Blob([new Uint8Array(data)]).stream().pipeThrough(new CompressionStream('deflate'))
   return new Uint8Array(await new Response(stream).arrayBuffer())
 }
 
