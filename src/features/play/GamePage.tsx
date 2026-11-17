@@ -144,7 +144,7 @@ export default function GamePage() {
             <article key={message.id}>
               {sceneImage && (
                 <button type="button" onClick={() => setViewing(sceneImage)} className="-mx-5 mb-5 block w-[calc(100%+2.5rem)]" aria-label="Agrandir l'image">
-                  <StoredImage id={sceneImage} className="aspect-[16/10] w-full" />
+                  <StoredImage id={sceneImage} className="aspect-[4/3] w-full object-[center_20%]" />
                 </button>
               )}
               {message.ooc ? <OocText text={shown} /> : <NarrativeView text={shown || '「…」'} portraits={portraits} />}
