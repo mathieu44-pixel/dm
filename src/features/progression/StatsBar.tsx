@@ -47,12 +47,15 @@ export function StatsBar({ defs, values }: { defs: StatDef[]; values: Record<str
             const label = d.levels[statLevel(d, value)]
             return (
               <li key={d.id} className="min-w-0">
-                <div className="flex items-baseline justify-between gap-2 text-xs">
-                  <span className="truncate">
+                <div className="text-xs leading-snug">
+                  <span className="break-words">
                     {d.icon && <span className="mr-1">{d.icon}</span>}
                     {d.name}
                   </span>
-                  <span className="shrink-0 text-muted">{label || value}</span>
+                  <span className="block text-muted">
+                    {label ? `${label} · ` : ''}
+                    {value}
+                  </span>
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
                   <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.round(ratio * 100)}%`, background: d.color }} />

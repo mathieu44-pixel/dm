@@ -99,8 +99,8 @@ export function buildCreationRequest(model: string, options: CreationOptions): L
       : `- 2 à ${CREATION_LIMITS.characters} personnages marquants, aux personnalités contrastées, qui ont chacun une raison d'interagir avec le joueur.`,
     '- Le joueur incarne son propre personnage (son avatar) : ne le décris pas, ne lui donne pas de nom, adresse-toi à lui à la deuxième personne dans le prologue.',
     '- Prologue de 120 à 250 mots qui pose la scène et se termine sur une situation qui appelle une réaction du joueur.',
-    '- Format du prologue : narration entre 「 et 」, répliques sous la forme Nom | "réplique", actions brèves entre *astérisques*. Une réplique ou un bloc de narration par ligne.',
-    '- suggestions : 3 premières actions possibles pour le joueur, à la première personne, 15 mots maximum.',
+    '- Format du prologue, une ligne par élément : narration entre 「 et 」 ; réplique sous la forme Nom | "réplique" avec des guillemets droits " (jamais « »), sans action à l\'intérieur ; action brève d\'un personnage sur sa propre ligne, entre *astérisques*.',
+    '- suggestions : 3 premières actions possibles pour le joueur, à la première personne du présent (« Je… »), 15 mots maximum.',
     '- tags : 2 à 5 mots-clés (genre, ambiance).',
     ...(progression
       ? [
