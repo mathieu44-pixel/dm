@@ -1,4 +1,6 @@
 import type { LlmRequest } from '../llm/types'
+import { describeStat, type StatValues } from '../progression/rules'
+import type { StatDef } from '../progression/types'
 import { parseSuggestions } from '../prompt/suggestions'
 import type { ThreadEntry } from '../session/types'
 import { MEMORY_LIMITS, type MemoryEntry, type MemoryKind } from './types'
@@ -15,6 +17,12 @@ export interface TurnAnalysis {
   suggestions: string[]
   add: { kind: MemoryKind; text: string }[]
   removeIds: string[]
+  statDeltas: { statId: string; delta: number }[]
+}
+
+export interface StatsInput {
+  defs: StatDef[]
+  values: StatValues
 }
 
 /** Alias courts (m1, m2…) : plus fiables pour l'IA que des identifiants longs. */
@@ -27,6 +35,7 @@ export function buildTurnAnalysisRequest(
   playerName: string,
   entries: ThreadEntry[],
   autoMemories: MemoryEntry[],
+  stats?: StatsInput,
 ): LlmRequest {
   const transcript = entries
     .filter((e) => !e.ooc)
@@ -37,6 +46,13 @@ export function buildTurnAnalysisRequest(
   const memoryList = [...aliasMemories(autoMemories)]
     .map(([alias, m]) => `${alias} [${m.kind}] ${m.text}`)
     .join('\n')
+
+  const statList =
+    stats && stats.defs.length
+      ? stats.defs
+          .map((d, i) => `s${i + 1} — ${describeStat(d, stats.values[d.id] ?? d.initial)} (entre ${d.min} et ${d.max}). Règle : ${d.rulesText || 'à ton jugement.'}`)
+          .join('\n')
+      : ''
 
   return {
     model,
@@ -51,18 +67,26 @@ export function buildTurnAnalysisRequest(
         content: [
           `Mémoire actuelle de la partie :\n${memoryList || '(vide)'}`,
           '',
+          ...(statList ? [`Jauges de la partie :\n${statList}`, ''] : []),
           `Fin de l'histoire en cours :\n\n${transcript}`,
           '',
           'Réponds avec ce JSON :',
           '{',
           `  "suggestions": ["…", "…", "…"],`,
           '  "add": [{ "type": "fact" | "relation" | "goal", "text": "…" }],',
-          '  "remove": ["m2"]',
+          '  "remove": ["m2"]' + (statList ? ',' : ''),
+          ...(statList ? ['  "stats": [{ "id": "s1", "delta": 5 }]'] : []),
           '}',
           '',
           `- suggestions : 3 actions courtes et variées que ${playerName} pourrait faire maintenant, à la première personne (une prudente, une audacieuse, une qui fait parler un personnage), 15 mots maximum chacune.`,
-          '- add : 0 à 3 informations NOUVELLES et durables apparues dans les derniers échanges (fact = fait important découvert ; relation = changement dans la relation entre le joueur et un personnage ; goal = objectif en cours). Une phrase de 20 mots maximum, à la troisième personne. N\'ajoute rien de déjà présent dans la mémoire.',
+          '- add : 0 à 3 informations NOUVELLES et durables apparues dans les derniers échanges. Une phrase de 20 mots maximum, à la troisième personne. N\'ajoute rien de déjà présent dans la mémoire.',
+          `    • relation = ce qu'un personnage pense, ressent ou fait envers ${playerName} (confiance, méfiance, dette, attirance, colère…) ;`,
+          `    • goal = un objectif en cours de ${playerName} ou une promesse à tenir ;`,
+          '    • fact = un fait objectif sur le monde ou l\'intrigue (découverte, objet, lieu, secret révélé).',
           '- remove : alias des éléments de mémoire devenus faux, obsolètes ou des objectifs accomplis.',
+          ...(statList
+            ? ['- stats : variations des jauges dues aux derniers échanges, selon leurs règles (entier positif ou négatif, petites variations ; omets les jauges inchangées).']
+            : []),
         ].join('\n'),
       },
     ],
@@ -81,9 +105,9 @@ function extractJsonObject(text: string): unknown {
 }
 
 /** Lecture tolérante de la réponse. En cas de JSON illisible : suggestions seules, mémoire inchangée. */
-export function parseTurnAnalysis(text: string, autoMemories: MemoryEntry[]): TurnAnalysis {
-  const data = extractJsonObject(text) as { suggestions?: unknown; add?: unknown; remove?: unknown } | null
-  if (!data || typeof data !== 'object') return { suggestions: parseSuggestions(text), add: [], removeIds: [] }
+export function parseTurnAnalysis(text: string, autoMemories: MemoryEntry[], statDefs: StatDef[] = []): TurnAnalysis {
+  const data = extractJsonObject(text) as { suggestions?: unknown; add?: unknown; remove?: unknown; stats?: unknown } | null
+  if (!data || typeof data !== 'object') return { suggestions: parseSuggestions(text), add: [], removeIds: [], statDeltas: [] }
 
   const suggestions = Array.isArray(data.suggestions) ? parseSuggestions(JSON.stringify(data.suggestions)) : []
 
@@ -107,7 +131,19 @@ export function parseTurnAnalysis(text: string, autoMemories: MemoryEntry[]): Tu
       })
     : []
 
-  return { suggestions, add, removeIds }
+  const statDeltas: TurnAnalysis['statDeltas'] = []
+  if (Array.isArray(data.stats)) {
+    for (const item of data.stats) {
+      if (typeof item !== 'object' || item === null) continue
+      const { id, delta } = item as { id?: unknown; delta?: unknown }
+      const match = typeof id === 'string' ? /^s(\d+)$/.exec(id.trim()) : null
+      const def = match ? statDefs[Number(match[1]) - 1] : undefined
+      const value = typeof delta === 'number' ? delta : typeof delta === 'string' ? Number(delta) : Number.NaN
+      if (def && Number.isFinite(value) && value !== 0) statDeltas.push({ statId: def.id, delta: Math.round(value) })
+    }
+  }
+
+  return { suggestions, add, removeIds, statDeltas }
 }
 
 /** Retire les ajouts déjà connus (même texte, sans tenir compte de la casse ni de la ponctuation finale). */

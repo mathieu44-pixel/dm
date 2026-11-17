@@ -18,6 +18,7 @@ import { createProvider } from '../../engine/llm/client'
 import { describeLlmError } from '../../engine/llm/errors'
 import { buildTurnAnalysisRequest, parseTurnAnalysis } from '../../engine/memory/analysis'
 import { buildSummaryRequest, planSummary, summaryIndex } from '../../engine/memory/summary'
+import { applyDeltas, describeStat, findTriggeredEnding, initStats } from '../../engine/progression/rules'
 import { buildHistory, buildMemoryPrompt, buildSystemPrompt, CONTINUE_INSTRUCTION, HISTORY_CHAR_BUDGET, type StoryContext } from '../../engine/prompt/storyPrompt'
 import { getThread, parseOocCommand, toEntries } from '../../engine/session/thread'
 import type { Message, ThreadEntry } from '../../engine/session/types'
@@ -53,6 +54,14 @@ export function useGame(sessionId: string | undefined) {
   const ready = settings ? isReady(settings) : false
   const busy = streaming !== null
 
+  const startSetting = useMemo(
+    () => data?.story.startSettings.find((s) => s.id === data.session.startSettingId) ?? data?.story.startSettings[0],
+    [data],
+  )
+  const statDefs = useMemo(() => startSetting?.stats ?? [], [startSetting])
+  const endings = useMemo(() => startSetting?.endings ?? [], [startSetting])
+  const statValues = useMemo(() => initStats(statDefs, data?.session.stats), [statDefs, data])
+
   const context = useMemo<StoryContext | null>(() => {
     if (!data) return null
     return {
@@ -62,8 +71,9 @@ export function useGame(sessionId: string | undefined) {
       writingRules: data.story.writingRules,
       characters: data.characters,
       avatar: data.session.avatar,
+      statDefs,
     }
-  }, [data])
+  }, [data, statDefs])
 
   /** Appel en streaming à la narratrice. `extra` = consigne ajoutée sans être enregistrée. */
   const generate = useCallback(
@@ -78,6 +88,7 @@ export function useGame(sessionId: string | undefined) {
         sessionNotes: data?.session.userNotes ?? '',
         memories: memories ?? [],
         summary: covered >= 1 ? (data?.session.summary?.text ?? '') : '',
+        statLines: statDefs.map((d) => describeStat(d, statValues[d.id])),
       })
       const controller = new AbortController()
       abortRef.current = controller
@@ -100,7 +111,24 @@ export function useGame(sessionId: string | undefined) {
       if (!result.text.trim()) throw new Error("L'IA a renvoyé une réponse vide. Réessaie.")
       return { ...result, model: active.storyModel }
     },
-    [settings, context, data, memories, globalNotes],
+    [settings, context, data, memories, globalNotes, statDefs, statValues],
+  )
+
+  /** Vérifie si une fin est atteinte (règles déterministes, sans appel à l'IA). */
+  const checkEnding = useCallback(
+    async (sessionId: string, stats: Record<string, number>) => {
+      if (!endings.length) return
+      const fresh = await loadSession(sessionId)
+      if (!fresh || fresh.pendingEndingId) return
+      const reached = fresh.endingsReached ?? []
+      const ending = findTriggeredEnding(endings, { turn: fresh.turn, stats }, reached)
+      if (!ending) return
+      await patchSession(sessionId, {
+        pendingEndingId: ending.id,
+        endingsReached: [...reached, { endingId: ending.id, turn: fresh.turn, reachedAt: Date.now() }],
+      })
+    },
+    [endings],
   )
 
   /**
@@ -118,11 +146,17 @@ export function useGame(sessionId: string | undefined) {
       setSuggesting(true)
       try {
         const auto = (await loadMemories(sessionId)).filter((m) => m.kind !== 'long')
-        const result = await provider.complete(buildTurnAnalysisRequest(active.utilityModel, playerName, entries, auto))
-        const analysis = parseTurnAnalysis(result.text, auto)
-        await patchSession(sessionId, { suggestions: analysis.suggestions })
+        const before = await loadSession(sessionId)
+        const values = initStats(statDefs, before?.stats)
+        const result = await provider.complete(
+          buildTurnAnalysisRequest(active.utilityModel, playerName, entries, auto, statDefs.length ? { defs: statDefs, values } : undefined),
+        )
+        const analysis = parseTurnAnalysis(result.text, auto, statDefs)
+        const nextStats = applyDeltas(statDefs, values, analysis.statDeltas)
+        await patchSession(sessionId, { suggestions: analysis.suggestions, stats: nextStats })
         await applyMemoryChanges(sessionId, analysis)
         if (result.costUsd) await addCostAndTurn(sessionId, result.costUsd)
+        await checkEnding(sessionId, nextStats)
       } catch {
         /* suggestions et mémoire facultatives */
       } finally {
@@ -141,7 +175,7 @@ export function useGame(sessionId: string | undefined) {
         /* on réessaiera au prochain tour */
       }
     },
-    [settings, data],
+    [settings, data, statDefs, checkEnding],
   )
 
   const fail = (err: unknown, retry?: Retry) => {
@@ -278,6 +312,10 @@ export function useGame(sessionId: string | undefined) {
     error,
     suggesting,
     dismissError: () => setError(null),
+    statDefs,
+    statValues,
+    endings,
+    dismissEnding: () => (data ? patchSession(data.session.id, { pendingEndingId: undefined }) : Promise.resolve()),
     send,
     regenerate,
     continueMessage,

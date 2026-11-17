@@ -9,6 +9,8 @@ import { activeContent, type Message } from '../../engine/session/types'
 import { Button } from '../../ui/Button'
 import { IconContinue, IconEdit, IconNext, IconPrev, IconRegenerate, IconTrash } from '../../ui/icons'
 import { NarrativeView } from '../../ui/NarrativeView'
+import { EndingCard } from '../progression/EndingCard'
+import { StatsBar } from '../progression/StatsBar'
 import { useGame } from './useGame'
 
 /** Écran de jeu. */
@@ -94,6 +96,8 @@ export default function GamePage() {
           ☰
         </button>
       </header>
+
+      <StatsBar defs={game.statDefs} values={game.statValues} />
 
       {!game.ready && (
         <Link to="/reglages" className="m-4 rounded-xl border border-accent/40 bg-accent-soft p-3 text-sm">
@@ -262,6 +266,13 @@ export default function GamePage() {
         </div>
       </footer>
 
+      {/* Fin atteinte */}
+      {session.pendingEndingId &&
+        (() => {
+          const ending = game.endings.find((e) => e.id === session.pendingEndingId)
+          return ending ? <EndingCard ending={ending} onContinue={() => void game.dismissEnding()} /> : null
+        })()}
+
       {/* Menu de la partie */}
       {menuOpen && (
         <Sheet onClose={() => setMenuOpen(false)} title="Partie en cours">
@@ -270,6 +281,9 @@ export default function GamePage() {
             <Row label="Tours joués" value={String(session.turn)} />
             <Row label="Coût estimé" value={formatUsd(session.costUsd)} />
             {settings && <Row label="Modèle" value={activeProvider(settings).storyModel} />}
+            {game.endings.length > 0 && (
+              <Row label="Fins atteintes" value={`${session.endingsReached?.length ?? 0}/${game.endings.length}`} />
+            )}
           </dl>
           <div className="flex items-center justify-between rounded-xl bg-surface-2 px-4 py-2 text-sm">
             <span className="text-muted">Taille du texte</span>

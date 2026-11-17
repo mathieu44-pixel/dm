@@ -7,6 +7,7 @@ import { Button } from '../../ui/Button'
 import { TextArea, TextField } from '../../ui/Field'
 import { NarrativeView } from '../../ui/NarrativeView'
 import { PageHeader } from '../../ui/PageHeader'
+import { ProgressionEditor } from './ProgressionEditor'
 
 const NEW_ID = 'nouvelle'
 
@@ -193,6 +194,10 @@ export default function StoryEditorPage() {
               />
             ))}
           </div>
+        </Section>
+
+        <Section title="Jauges et fins">
+          <ProgressionEditor start={start} onChange={patchStart} />
         </Section>
       </main>
 

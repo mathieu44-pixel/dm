@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanSuggestions, newAvatar, newCharacter, newStory, parseTags, validateAvatar, validateStory } from './storyModel'
+import { cleanSuggestions, conditionStatIds, newAvatar, newCharacter, newEnding, newStat, newStory, parseTags, validateAvatar, validateStory } from './storyModel'
 
 describe('parseTags', () => {
   it('nettoie, déduplique sans tenir compte de la casse et retire les #', () => {
@@ -55,5 +55,41 @@ describe('validateAvatar', () => {
     expect(validateAvatar(newAvatar())).toContain('Le nom est obligatoire.')
     const long = { ...newAvatar(), name: 'x'.repeat(41), details: 'y'.repeat(501) }
     expect(validateAvatar(long)).toHaveLength(2)
+  })
+})
+
+describe('validateStory (jauges et fins)', () => {
+  const base = () => {
+    const story = newStory()
+    story.title = 'T'
+    story.worldLore = 'M'
+    story.startSettings[0].prologue = 'P'
+    return story
+  }
+
+  it('accepte des jauges et fins cohérentes', () => {
+    const story = base()
+    const stat = { ...newStat(), name: 'Confiance' }
+    const ending = { ...newEnding(), name: 'Fin', condition: { op: 'AND' as const, items: [{ type: 'stat' as const, statId: stat.id, cmp: '>=' as const, value: 60 }] } }
+    story.startSettings[0].stats = [stat]
+    story.startSettings[0].endings = [ending]
+    expect(validateStory(story, [])).toEqual([])
+  })
+
+  it('signale bornes incohérentes, fin sans condition et jauge supprimée', () => {
+    const story = base()
+    story.startSettings[0].stats = [{ ...newStat(), name: 'X', min: 10, max: 5 }]
+    story.startSettings[0].endings = [
+      { ...newEnding(), name: 'A', condition: { op: 'AND', items: [] } },
+      { ...newEnding(), name: 'B', condition: { op: 'OR', items: [{ type: 'stat', statId: 'disparue', cmp: '<', value: 1 }] } },
+    ]
+    const errors = validateStory(story, [])
+    expect(errors).toContain('Jauge X : le minimum doit être inférieur au maximum.')
+    expect(errors).toContain('Fin A : ajoute au moins une condition.')
+    expect(errors).toContain('Fin B : une condition utilise une jauge supprimée.')
+  })
+
+  it('trouve les jauges des conditions imbriquées', () => {
+    expect(conditionStatIds({ op: 'AND', items: [{ type: 'turn', gte: 1 }, { op: 'OR', items: [{ type: 'stat', statId: 'a', cmp: '<', value: 1 }] }] })).toEqual(['a'])
   })
 })

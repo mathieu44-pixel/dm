@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { initStats } from '../engine/progression/rules'
 import { descendantIds } from '../engine/session/thread'
 import type { Message, MessageVariant, Session } from '../engine/session/types'
 import { db } from './db'
@@ -61,6 +62,8 @@ export async function createSession(story: Story, startSettingId: string, avatar
     turn: 0,
     costUsd: 0,
     suggestions: start.initialSuggestions,
+    stats: initStats(start.stats ?? []),
+    endingsReached: [],
     createdAt: now,
     lastPlayedAt: now,
   }

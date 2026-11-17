@@ -1,4 +1,5 @@
 import type { SessionSummary } from '../memory/types'
+import type { ReachedEnding } from '../progression/types'
 
 /** Une version d'un message (régénérer crée une nouvelle variante). */
 export interface MessageVariant {
@@ -48,6 +49,12 @@ export interface Session {
   userNotes?: string
   /** Résumé des échanges anciens (v0.3). */
   summary?: SessionSummary
+  /** Valeurs des jauges (v0.4). */
+  stats?: Record<string, number>
+  /** Fins déjà atteintes dans cette partie. */
+  endingsReached?: ReachedEnding[]
+  /** Fin qui vient d'être atteinte, en attente d'affichage. */
+  pendingEndingId?: string
   createdAt: number
   lastPlayedAt: number
 }

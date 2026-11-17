@@ -1,3 +1,4 @@
+import { PROGRESSION_LIMITS, type Condition, type EndingDef, type StatDef } from '../engine/progression/types'
 import type { Avatar, Character, StartSetting, Story } from './types'
 
 /** Limites reprises d'OOC (avatars) ou fixées pour garder le contexte maîtrisé. */
@@ -16,6 +17,31 @@ export function newId(): string {
 
 export function newStartSetting(name = 'Départ principal'): StartSetting {
   return { id: newId(), name, prologue: '', initialSuggestions: [] }
+}
+
+const STAT_COLORS = ['#e8b04b', '#5fa8e8', '#e86f5f', '#6fd08c', '#c27be8', '#e8d35f', '#5fd0d0']
+
+export function newStat(index = 0): StatDef {
+  return {
+    id: newId(),
+    name: '',
+    icon: '',
+    color: STAT_COLORS[index % STAT_COLORS.length],
+    min: 0,
+    max: 100,
+    initial: 50,
+    levels: { low: '', mid: '', high: '' },
+    rulesText: '',
+  }
+}
+
+export function newEnding(): EndingDef {
+  return { id: newId(), name: '', rarity: 'N', cardText: '', epilogue: '', condition: { op: 'AND', items: [{ type: 'turn', gte: 20 }] } }
+}
+
+/** Jauges référencées par une condition (y compris imbriquée). */
+export function conditionStatIds(condition: Condition): string[] {
+  return condition.items.flatMap((item) => ('op' in item ? conditionStatIds(item) : item.type === 'stat' ? [item.statId] : []))
 }
 
 export function newStory(now = Date.now()): Story {
@@ -73,6 +99,23 @@ export function validateStory(story: Story, characters: Character[]): string[] {
   if (story.startSettings.length === 0) errors.push('Il faut au moins un point de départ.')
   story.startSettings.forEach((s, i) => {
     if (!s.prologue.trim()) errors.push(`Le point de départ n°${i + 1} n'a pas de prologue.`)
+    const stats = s.stats ?? []
+    const endings = s.endings ?? []
+    if (stats.length > PROGRESSION_LIMITS.stats) errors.push(`${PROGRESSION_LIMITS.stats} jauges au maximum.`)
+    if (endings.length > PROGRESSION_LIMITS.endings) errors.push(`${PROGRESSION_LIMITS.endings} fins au maximum.`)
+    stats.forEach((st, j) => {
+      const label = st.name.trim() || `n°${j + 1}`
+      if (!st.name.trim()) errors.push(`La jauge n°${j + 1} n'a pas de nom.`)
+      if (!(st.min < st.max)) errors.push(`Jauge ${label} : le minimum doit être inférieur au maximum.`)
+      else if (st.initial < st.min || st.initial > st.max) errors.push(`Jauge ${label} : la valeur de départ doit être entre ${st.min} et ${st.max}.`)
+    })
+    const statIds = new Set(stats.map((st) => st.id))
+    endings.forEach((e, j) => {
+      const label = e.name.trim() || `n°${j + 1}`
+      if (!e.name.trim()) errors.push(`La fin n°${j + 1} n'a pas de nom.`)
+      if (e.condition.items.length === 0) errors.push(`Fin ${label} : ajoute au moins une condition.`)
+      if (conditionStatIds(e.condition).some((id) => !statIds.has(id))) errors.push(`Fin ${label} : une condition utilise une jauge supprimée.`)
+    })
   })
   characters.forEach((c, i) => {
     if (!c.name.trim()) errors.push(`Le personnage n°${i + 1} n'a pas de nom.`)

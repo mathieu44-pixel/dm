@@ -1,5 +1,6 @@
 import type { ChatMessage } from '../llm/types'
 import { MEMORY_LABELS, type MemoryEntry } from '../memory/types'
+import type { StatDef } from '../progression/types'
 import type { AvatarSnapshot, ThreadEntry } from '../session/types'
 
 /**
@@ -24,6 +25,8 @@ export interface StoryContext {
   writingRules: string
   characters: PromptCharacter[]
   avatar: AvatarSnapshot | null
+  /** Jauges du point de départ (v0.4). */
+  statDefs?: StatDef[]
 }
 
 /** Marqueurs hors-jeu insérés dans l'historique envoyé à l'IA. */
@@ -88,6 +91,15 @@ export function buildSystemPrompt(ctx: StoryContext): string {
     section("Style d'écriture", ctx.writingRules),
     section('Personnages', ctx.characters.map(describeCharacter).join('\n\n')),
     section('Personnage du joueur', avatar),
+    section(
+      'Jauges de la partie',
+      (ctx.statDefs ?? [])
+        .map((d) => `- ${d.name} (de ${d.min} à ${d.max})${d.rulesText ? ` : ${d.rulesText}` : ''}`)
+        .join('\n') +
+        ((ctx.statDefs ?? []).length
+          ? "\nL'application calcule ces jauges : fais évoluer l'histoire en cohérence avec leur niveau actuel, sans jamais les citer ni afficher de chiffres."
+          : ''),
+    ),
   ]
     .filter(Boolean)
     .join('\n\n')
@@ -98,6 +110,8 @@ export interface MemoryContext {
   sessionNotes: string
   memories: MemoryEntry[]
   summary: string
+  /** État des jauges, déjà formulé (« Confiance : 40/100 (méfiante) »). */
+  statLines?: string[]
 }
 
 /**
@@ -116,6 +130,7 @@ export function buildMemoryPrompt(memory: MemoryContext): string {
     section('Souvenirs importants', longTerm.map((m) => `- ${m.text}`).join('\n')),
     section('Mémoire de la partie', auto.map((m) => `- ${MEMORY_LABELS[m.kind]} : ${m.text}`).join('\n')),
     section("Résumé de l'histoire jusqu'ici", memory.summary),
+    section('État actuel des jauges', (memory.statLines ?? []).map((l) => `- ${l}`).join('\n')),
   ]
     .filter(Boolean)
     .join('\n\n')

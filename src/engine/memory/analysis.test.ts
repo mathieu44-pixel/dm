@@ -77,3 +77,29 @@ describe('overflowIds', () => {
     expect(overflowIds(list, 10)).toEqual([])
   })
 })
+
+describe('jauges dans l\'analyse de fin de tour', () => {
+  const defs = [
+    { id: 'conf', name: 'Confiance', icon: '', color: '#fff', min: 0, max: 100, initial: 30, levels: { low: 'méfiante', mid: '', high: '' }, rulesText: 'Monte si le joueur aide Maëlle.' },
+    { id: 'ind', name: 'Indices', icon: '', color: '#fff', min: 0, max: 10, initial: 0, levels: { low: '', mid: '', high: '' }, rulesText: '' },
+  ]
+
+  it('présente les jauges avec alias, valeur et règle', () => {
+    const req = buildTurnAnalysisRequest('m', 'Annaelle', [], [], { defs, values: { conf: 30, ind: 2 } })
+    const text = req.messages[0].content
+    expect(text).toContain('s1 — Confiance : 30/100 (méfiante) (entre 0 et 100). Règle : Monte si le joueur aide Maëlle.')
+    expect(text).toContain('"stats"')
+  })
+
+  it("n'évoque pas les jauges quand l'histoire n'en a pas", () => {
+    expect(buildTurnAnalysisRequest('m', 'A', [], []).messages[0].content).not.toContain('"stats"')
+  })
+
+  it('convertit les alias en identifiants et ignore les valeurs invalides', () => {
+    const result = parseTurnAnalysis('{"stats":[{"id":"s1","delta":10},{"id":"s2","delta":"-1"},{"id":"s9","delta":3},{"id":"s1","delta":"x"}]}', [], defs)
+    expect(result.statDeltas).toEqual([
+      { statId: 'conf', delta: 10 },
+      { statId: 'ind', delta: -1 },
+    ])
+  })
+})

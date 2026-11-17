@@ -51,14 +51,30 @@ export async function deleteStory(id: string): Promise<void> {
   })
 }
 
-/** Installe l'histoire d'exemple au premier lancement (une seule fois). */
+/** Version du contenu de l'histoire d'exemple : l'augmenter met à jour l'exemple déjà installé. */
+export const EXAMPLE_VERSION = 2
+
+/**
+ * Installe l'histoire d'exemple au premier lancement, puis la met à jour quand son contenu évolue
+ * (v2 : jauges et fins). Si l'utilisateur l'a supprimée, elle n'est pas réinstallée.
+ */
 export async function ensureExampleStory(): Promise<void> {
   await db.transaction('rw', db.stories, db.characters, db.meta, async () => {
-    const done = await db.meta.get('exampleInstalled')
-    if (done?.value) return
-    await db.characters.bulkPut(EXAMPLE_CHARACTERS)
-    await db.stories.put(EXAMPLE_STORY)
-    await db.meta.put({ key: 'exampleInstalled', value: true })
+    const installed = await db.meta.get('exampleInstalled')
+    const version = ((await db.meta.get('exampleVersion'))?.value as number | undefined) ?? 1
+    if (installed?.value) {
+      if (version >= EXAMPLE_VERSION) return
+      const existing = await db.stories.get(EXAMPLE_STORY.id)
+      if (existing) {
+        await db.characters.bulkPut(EXAMPLE_CHARACTERS)
+        await db.stories.put({ ...EXAMPLE_STORY, lastPlayedAt: existing.lastPlayedAt })
+      }
+    } else {
+      await db.characters.bulkPut(EXAMPLE_CHARACTERS)
+      await db.stories.put(EXAMPLE_STORY)
+      await db.meta.put({ key: 'exampleInstalled', value: true })
+    }
+    await db.meta.put({ key: 'exampleVersion', value: EXAMPLE_VERSION })
   })
 }
 

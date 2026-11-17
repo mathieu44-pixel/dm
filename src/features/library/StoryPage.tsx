@@ -9,6 +9,7 @@ import { NarrativeView } from '../../ui/NarrativeView'
 import { PageHeader } from '../../ui/PageHeader'
 import { SessionList } from '../../ui/SessionList'
 import { StoryCover } from '../../ui/StoryCover'
+import { RARITIES } from '../../engine/progression/types'
 
 /** Fiche d'une histoire : présentation, personnages, aperçu du prologue. */
 export default function StoryPage() {
@@ -69,6 +70,33 @@ export default function StoryPage() {
             </ul>
           </section>
         )}
+
+        {(() => {
+          const endings = story.startSettings.flatMap((s) => s.endings ?? [])
+          if (!endings.length) return null
+          const found = new Set((summaries ?? []).flatMap((x) => (x.session.endingsReached ?? []).map((r) => r.endingId)))
+          return (
+            <section className="mt-8 px-5">
+              <h3 className="mb-3 text-sm font-medium text-muted">
+                Fins découvertes ({endings.filter((e) => found.has(e.id)).length}/{endings.length})
+              </h3>
+              <ul className="grid grid-cols-2 gap-2">
+                {endings.map((e) => {
+                  const rarity = RARITIES.find((r) => r.id === e.rarity)
+                  const known = found.has(e.id)
+                  return (
+                    <li key={e.id} className="rounded-xl border bg-surface px-3 py-2" style={{ borderColor: known ? rarity?.color : undefined }}>
+                      <span className="text-[0.65rem] font-bold" style={{ color: rarity?.color }}>
+                        {e.rarity}
+                      </span>
+                      <p className={'text-sm ' + (known ? '' : 'text-muted')}>{known ? e.name : '???'}</p>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          )
+        })()}
 
         {summaries && summaries.length > 0 && (
           <section className="mt-8 px-5">

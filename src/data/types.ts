@@ -1,5 +1,6 @@
 import { DEFAULT_STORY_MODEL, DEFAULT_UTILITY_MODEL } from '../engine/llm/models'
 import type { ProviderId } from '../engine/llm/types'
+import type { EndingDef, StatDef } from '../engine/progression/types'
 
 /* ---------- Réglages ---------- */
 
@@ -55,6 +56,10 @@ export interface StartSetting {
   prologue: string
   /** Jusqu'à 3 actions proposées au joueur au premier tour. */
   initialSuggestions: string[]
+  /** Jauges (7 max, v0.4). Absent sur les histoires créées avant la v0.4. */
+  stats?: StatDef[]
+  /** Fins possibles (10 max, v0.4). */
+  endings?: EndingDef[]
 }
 
 export type StoryMode = 'story' | 'character'
