@@ -27,6 +27,13 @@ describe('buildGeminiBody', () => {
   })
 })
 
+describe('buildGeminiBody (consignes dynamiques)', () => {
+  it('concatène les consignes stables et dynamiques', () => {
+    const body = buildGeminiBody({ model: 'g', system: 'A', systemDynamic: 'B', messages: [], maxTokens: 1 })
+    expect(body.systemInstruction).toEqual({ parts: [{ text: 'A\n\nB' }] })
+  })
+})
+
 describe('extractText', () => {
   it('ignore les parties de réflexion interne', () => {
     expect(

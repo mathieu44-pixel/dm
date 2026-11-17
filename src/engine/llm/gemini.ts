@@ -11,8 +11,9 @@ const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
 /* ---------- Construction de la requête ---------- */
 
 export function buildGeminiBody(request: LlmRequest) {
+  const system = [request.system, request.systemDynamic].filter(Boolean).join('\n\n')
   return {
-    ...(request.system ? { systemInstruction: { parts: [{ text: request.system }] } } : {}),
+    ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
     contents: request.messages.map((m) => ({
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }],

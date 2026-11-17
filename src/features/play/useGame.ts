@@ -1,10 +1,12 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
+import { applyMemoryChanges, loadMemories, useGlobalNotes, useMemories } from '../../data/memories'
 import {
   addCostAndTurn,
   addVariant,
   appendMessage,
   deleteAfter,
   deleteFrom,
+  loadSession,
   patchSession,
   selectVariant,
   setActiveContent,
@@ -14,8 +16,9 @@ import { useSettings } from '../../data/settings'
 import { activeProvider, isReady } from '../../data/settingsModel'
 import { createProvider } from '../../engine/llm/client'
 import { describeLlmError } from '../../engine/llm/errors'
-import { buildHistory, buildSystemPrompt, CONTINUE_INSTRUCTION, type StoryContext } from '../../engine/prompt/storyPrompt'
-import { buildSuggestionsRequest, parseSuggestions } from '../../engine/prompt/suggestions'
+import { buildTurnAnalysisRequest, parseTurnAnalysis } from '../../engine/memory/analysis'
+import { buildSummaryRequest, planSummary, summaryIndex } from '../../engine/memory/summary'
+import { buildHistory, buildMemoryPrompt, buildSystemPrompt, CONTINUE_INSTRUCTION, HISTORY_CHAR_BUDGET, type StoryContext } from '../../engine/prompt/storyPrompt'
 import { getThread, parseOocCommand, toEntries } from '../../engine/session/thread'
 import type { Message, ThreadEntry } from '../../engine/session/types'
 
@@ -36,6 +39,8 @@ type Retry = () => Promise<void>
 export function useGame(sessionId: string | undefined) {
   const data = useSessionData(sessionId)
   const settings = useSettings()
+  const memories = useMemories(sessionId)
+  const globalNotes = useGlobalNotes()
   const [streaming, setStreaming] = useState<Streaming | null>(null)
   const [error, setError] = useState<{ message: string; retry?: Retry } | null>(null)
   const [suggesting, setSuggesting] = useState(false)
@@ -65,8 +70,15 @@ export function useGame(sessionId: string | undefined) {
     async (entries: ThreadEntry[], onText: (text: string) => void, extra?: string) => {
       if (!settings || !context) throw new Error('Partie non chargée.')
       const active = activeProvider(settings)
-      const messages = buildHistory(entries)
+      const covered = summaryIndex(entries, data?.session.summary)
+      const messages = buildHistory(entries, HISTORY_CHAR_BUDGET, covered)
       if (extra) messages.push({ role: 'user', content: extra })
+      const systemDynamic = buildMemoryPrompt({
+        globalNotes: globalNotes ?? '',
+        sessionNotes: data?.session.userNotes ?? '',
+        memories: memories ?? [],
+        summary: covered >= 1 ? (data?.session.summary?.text ?? '') : '',
+      })
       const controller = new AbortController()
       abortRef.current = controller
       let text = ''
@@ -74,6 +86,7 @@ export function useGame(sessionId: string | undefined) {
         {
           model: active.storyModel,
           system: buildSystemPrompt(context),
+          systemDynamic,
           messages,
           maxTokens: STORY_MAX_TOKENS,
           signal: controller.signal,
@@ -87,24 +100,45 @@ export function useGame(sessionId: string | undefined) {
       if (!result.text.trim()) throw new Error("L'IA a renvoyé une réponse vide. Réessaie.")
       return { ...result, model: active.storyModel }
     },
-    [settings, context],
+    [settings, context, data, memories, globalNotes],
   )
 
+  /**
+   * Fin de tour (modèle « tâches internes ») : actions suggérées + mise à jour de la mémoire,
+   * puis résumé des échanges anciens si la partie devient longue.
+   * Ces étapes sont un confort : un échec n'interrompt jamais la partie.
+   */
   const refreshSuggestions = useCallback(
     async (entries: ThreadEntry[]) => {
       if (!settings || !data) return
       const active = activeProvider(settings)
+      const provider = createProvider(active.provider, active.apiKey)
+      const sessionId = data.session.id
+      const playerName = data.session.avatar?.name || 'le joueur'
       setSuggesting(true)
       try {
-        const result = await createProvider(active.provider, active.apiKey).complete(
-          buildSuggestionsRequest(active.utilityModel, data.session.avatar?.name || 'le joueur', entries),
-        )
-        await patchSession(data.session.id, { suggestions: parseSuggestions(result.text) })
-        if (result.costUsd) await addCostAndTurn(data.session.id, result.costUsd)
+        const auto = (await loadMemories(sessionId)).filter((m) => m.kind !== 'long')
+        const result = await provider.complete(buildTurnAnalysisRequest(active.utilityModel, playerName, entries, auto))
+        const analysis = parseTurnAnalysis(result.text, auto)
+        await patchSession(sessionId, { suggestions: analysis.suggestions })
+        await applyMemoryChanges(sessionId, analysis)
+        if (result.costUsd) await addCostAndTurn(sessionId, result.costUsd)
       } catch {
-        // Les suggestions sont un confort : en cas d'échec, on n'interrompt pas la partie.
+        /* suggestions et mémoire facultatives */
       } finally {
         setSuggesting(false)
+      }
+
+      try {
+        const fresh = await loadSession(sessionId)
+        const plan = planSummary(entries, fresh?.summary)
+        if (!plan) return
+        const result = await provider.complete(buildSummaryRequest(active.utilityModel, playerName, plan.base, plan.toSummarize))
+        if (result.text.trim())
+          await patchSession(sessionId, { summary: { text: result.text.trim(), coversUntilId: plan.coversUntilId, updatedAt: Date.now() } })
+        if (result.costUsd) await addCostAndTurn(sessionId, result.costUsd)
+      } catch {
+        /* on réessaiera au prochain tour */
       }
     },
     [settings, data],

@@ -1,3 +1,5 @@
+import type { SessionSummary } from '../memory/types'
+
 /** Une version d'un message (régénérer crée une nouvelle variante). */
 export interface MessageVariant {
   content: string
@@ -42,6 +44,10 @@ export interface Session {
   costUsd: number
   /** Actions proposées pour le prochain tour. */
   suggestions: string[]
+  /** Notes du joueur pour cette partie (« User Notes » d'OOC). */
+  userNotes?: string
+  /** Résumé des échanges anciens (v0.3). */
+  summary?: SessionSummary
   createdAt: number
   lastPlayedAt: number
 }

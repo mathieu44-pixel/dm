@@ -9,6 +9,7 @@ import StoryEditorPage from '../features/editor/StoryEditorPage'
 import HomePage from '../features/library/HomePage'
 import StoryPage from '../features/library/StoryPage'
 import GamePage from '../features/play/GamePage'
+import MemoryPage from '../features/play/MemoryPage'
 import SettingsPage from '../features/settings/SettingsPage'
 
 /**
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/histoire/:id" element={<StoryPage />} />
           <Route path="/histoire/:id/modifier" element={<StoryEditorPage />} />
           <Route path="/partie/:sessionId" element={<GamePage />} />
+          <Route path="/partie/:sessionId/memoire" element={<MemoryPage />} />
           <Route path="/avatars" element={<WithNav><AvatarsPage /></WithNav>} />
           <Route path="/reglages" element={<WithNav><SettingsPage /></WithNav>} />
           <Route path="*" element={<WithNav><HomePage /></WithNav>} />

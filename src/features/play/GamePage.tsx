@@ -283,6 +283,16 @@ export default function GamePage() {
               </button>
             </span>
           </div>
+          <Link
+            to={`/partie/${session.id}/memoire`}
+            className="flex items-center justify-between rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm"
+          >
+            <span>
+              Mémoire et notes
+              <span className="block text-xs text-muted">Notes de partie, souvenirs, mémoire automatique, résumé</span>
+            </span>
+            <span className="text-muted">›</span>
+          </Link>
           <div className="space-y-2 rounded-xl bg-surface-2 p-3 text-xs leading-relaxed text-muted">
             <p className="font-medium text-text">Guide</p>
             <p>• Écris tes paroles normalement et tes actions entre *astérisques* (bouton *).</p>

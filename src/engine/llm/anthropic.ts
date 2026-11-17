@@ -32,11 +32,20 @@ function params(request: LlmRequest) {
   return {
     model: request.model,
     max_tokens: request.maxTokens,
-    ...(request.system
+    ...(request.system || request.systemDynamic
       ? {
-          system: request.cacheSystem
-            ? [{ type: 'text' as const, text: request.system, cache_control: { type: 'ephemeral' as const } }]
-            : request.system,
+          system: [
+            ...(request.system
+              ? [
+                  {
+                    type: 'text' as const,
+                    text: request.system,
+                    ...(request.cacheSystem ? { cache_control: { type: 'ephemeral' as const } } : {}),
+                  },
+                ]
+              : []),
+            ...(request.systemDynamic ? [{ type: 'text' as const, text: request.systemDynamic }] : []),
+          ],
         }
       : {}),
     ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),

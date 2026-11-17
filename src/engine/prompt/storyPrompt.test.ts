@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ThreadEntry } from '../session/types'
-import { buildHistory, buildSystemPrompt, OOC_PREFIX } from './storyPrompt'
+import { buildHistory, buildMemoryPrompt, buildSystemPrompt, OOC_PREFIX } from './storyPrompt'
 
 const entry = (role: 'user' | 'ai', content: string, ooc = false): ThreadEntry => ({ id: content, role, ooc, content })
 
@@ -60,5 +60,41 @@ describe('buildHistory', () => {
     expect(history[1].content).toBe('Prologue')
     expect(history.some((m) => /messages plus anciens ont été omis/.test(m.content))).toBe(true)
     expect(history[history.length - 1].content.startsWith('9')).toBe(true)
+  })
+})
+
+describe('buildHistory avec résumé', () => {
+  it('saute les messages résumés mais garde le prologue et la suite', () => {
+    const entries = [entry('ai', 'Prologue'), entry('user', 'U1'), entry('ai', 'A1'), entry('user', 'U2'), entry('ai', 'A2')]
+    const history = buildHistory(entries, 60_000, 2)
+    const contents = history.map((m) => m.content).join(' | ')
+    expect(contents).toContain('Prologue')
+    expect(contents).not.toContain('U1')
+    expect(contents).not.toContain('A1')
+    expect(contents).toContain('U2')
+    expect(history[history.length - 1].content).toBe('A2')
+    // Les rôles alternent toujours.
+    history.forEach((m, i) => i > 0 && expect(m.role).not.toBe(history[i - 1].role))
+  })
+})
+
+describe('buildMemoryPrompt', () => {
+  const m = (kind: 'long' | 'fact' | 'relation' | 'goal', text: string) => ({ id: text, sessionId: 's', kind, text, source: 'ai' as const, createdAt: 0, updatedAt: 0 })
+
+  it('assemble notes, souvenirs, mémoire automatique et résumé', () => {
+    const prompt = buildMemoryPrompt({
+      globalNotes: 'Pas de gore.',
+      sessionNotes: 'Annaelle a 25 ans.',
+      memories: [m('fact', 'Il pleut'), m('long', 'La lettre est scellée'), m('relation', 'Maëlle se méfie')],
+      summary: 'Annaelle est arrivée.',
+    })
+    expect(prompt).toContain('Pas de gore.\n\nAnnaelle a 25 ans.')
+    expect(prompt).toContain('## Souvenirs importants\n- La lettre est scellée')
+    expect(prompt.indexOf('Relation : Maëlle se méfie')).toBeLessThan(prompt.indexOf('Fait : Il pleut'))
+    expect(prompt).toContain("## Résumé de l'histoire jusqu'ici\nAnnaelle est arrivée.")
+  })
+
+  it('est vide sans mémoire', () => {
+    expect(buildMemoryPrompt({ globalNotes: '', sessionNotes: '', memories: [], summary: '' })).toBe('')
   })
 })

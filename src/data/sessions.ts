@@ -30,6 +30,10 @@ export function useSessionData(sessionId: string | undefined) {
   }, [sessionId])
 }
 
+export async function loadSession(id: string): Promise<Session | undefined> {
+  return db.sessions.get(id)
+}
+
 /* ---------- Création ---------- */
 
 /** Crée une partie : le prologue devient le premier message de l'IA. */
@@ -162,8 +166,9 @@ export async function deleteAfter(session: Session, messageId: string): Promise<
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
-  await db.transaction('rw', db.sessions, db.messages, async () => {
+  await db.transaction('rw', db.sessions, db.messages, db.memories, async () => {
     await db.messages.where('sessionId').equals(sessionId).delete()
+    await db.memories.where('sessionId').equals(sessionId).delete()
     await db.sessions.delete(sessionId)
   })
 }

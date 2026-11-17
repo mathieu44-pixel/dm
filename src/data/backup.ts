@@ -1,3 +1,4 @@
+import type { MemoryEntry } from '../engine/memory/types'
 import type { Message, Session } from '../engine/session/types'
 import { db } from './db'
 import type { Avatar, Character, MetaEntry, Story } from './types'
@@ -18,10 +19,11 @@ export interface Backup {
   avatars: Avatar[]
   sessions: Session[]
   messages: Message[]
+  memories: MemoryEntry[]
   meta: MetaEntry[]
 }
 
-const TABLES = ['stories', 'characters', 'avatars', 'sessions', 'messages', 'meta'] as const
+const TABLES = ['stories', 'characters', 'avatars', 'sessions', 'messages', 'memories', 'meta'] as const
 
 /** Vérifie la structure d'un fichier de sauvegarde. Lève une erreur lisible sinon. */
 export function parseBackup(text: string): Backup {
@@ -54,6 +56,7 @@ export function parseBackup(text: string): Backup {
     avatars: backup.avatars ?? [],
     sessions: backup.sessions ?? [],
     messages: backup.messages ?? [],
+    memories: backup.memories ?? [],
     meta: backup.meta ?? [],
   }
 }
@@ -63,25 +66,38 @@ export function summarizeBackup(b: Backup): string {
 }
 
 export async function exportAll(): Promise<Backup> {
-  const [stories, characters, avatars, sessions, messages, meta] = await Promise.all([
+  const [stories, characters, avatars, sessions, messages, memories, meta] = await Promise.all([
     db.stories.toArray(),
     db.characters.toArray(),
     db.avatars.toArray(),
     db.sessions.toArray(),
     db.messages.toArray(),
+    db.memories.toArray(),
     db.meta.toArray(),
   ])
-  return { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: new Date().toISOString(), stories, characters, avatars, sessions, messages, meta }
+  return {
+    format: BACKUP_FORMAT,
+    version: BACKUP_VERSION,
+    exportedAt: new Date().toISOString(),
+    stories,
+    characters,
+    avatars,
+    sessions,
+    messages,
+    memories,
+    meta,
+  }
 }
 
 /** Importe en fusionnant : un élément de même identifiant est remplacé, les autres sont conservés. */
 export async function importBackup(backup: Backup): Promise<void> {
-  await db.transaction('rw', [db.stories, db.characters, db.avatars, db.sessions, db.messages, db.meta], async () => {
+  await db.transaction('rw', [db.stories, db.characters, db.avatars, db.sessions, db.messages, db.memories, db.meta], async () => {
     await db.stories.bulkPut(backup.stories)
     await db.characters.bulkPut(backup.characters)
     await db.avatars.bulkPut(backup.avatars)
     await db.sessions.bulkPut(backup.sessions)
     await db.messages.bulkPut(backup.messages)
+    await db.memories.bulkPut(backup.memories)
     await db.meta.bulkPut(backup.meta)
   })
 }

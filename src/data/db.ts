@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
+import type { MemoryEntry } from '../engine/memory/types'
 import type { Message, Session } from '../engine/session/types'
 import type { AppSettings, Avatar, Character, MetaEntry, Story } from './types'
 
@@ -14,6 +15,7 @@ export class DmDatabase extends Dexie {
   meta!: EntityTable<MetaEntry, 'key'>
   sessions!: EntityTable<Session, 'id'>
   messages!: EntityTable<Message, 'id'>
+  memories!: EntityTable<MemoryEntry, 'id'>
 
   constructor(name = 'dm') {
     super(name)
@@ -37,6 +39,17 @@ export class DmDatabase extends Dexie {
       meta: 'key',
       sessions: 'id, storyId, lastPlayedAt',
       messages: 'id, sessionId',
+    })
+    // v0.3 : mémoire des parties.
+    this.version(4).stores({
+      settings: 'id',
+      stories: 'id, updatedAt, lastPlayedAt',
+      characters: 'id',
+      avatars: 'id, updatedAt',
+      meta: 'key',
+      sessions: 'id, storyId, lastPlayedAt',
+      messages: 'id, sessionId',
+      memories: 'id, sessionId',
     })
   }
 }

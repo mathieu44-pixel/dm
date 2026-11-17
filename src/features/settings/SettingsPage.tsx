@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { downloadJson, exportAll, importBackup, parseBackup, summarizeBackup } from '../../data/backup'
+import { saveGlobalNotes, useGlobalNotes } from '../../data/memories'
 import { setTextSize, TEXT_SIZES, useTextSize } from '../../data/preferences'
+import { MEMORY_LIMITS } from '../../engine/memory/types'
+import { TextArea } from '../../ui/Field'
 import { setActiveProvider, updateProviderSettings, useSettings } from '../../data/settings'
 import { maskApiKey } from '../../data/settingsModel'
 import type { ProviderSettings } from '../../data/types'
@@ -56,6 +59,8 @@ export default function SettingsPage() {
 
         {/* `key` : on repart d'un état propre quand on change de fournisseur. */}
         <ProviderPanel key={provider} provider={provider} config={settings[provider]} onSaved={flashSaved} />
+
+        <GlobalNotesPanel />
 
         <ReadingPanel />
 
@@ -461,6 +466,33 @@ function ReadingPanel() {
       <p className="mt-4 rounded-xl bg-ink p-4 font-[family-name:var(--font-story)] text-[length:var(--story-size,1.05rem)] leading-[1.8] text-text/70">
         「La pluie bat les volets de l'auberge.」
       </p>
+    </section>
+  )
+}
+
+/** Notes valables pour toutes les parties (préférences de jeu, limites…). */
+function GlobalNotesPanel() {
+  const stored = useGlobalNotes()
+  if (stored === undefined) return null
+  return <GlobalNotesEditor key={stored} initial={stored} />
+}
+
+function GlobalNotesEditor({ initial }: { initial: string }) {
+  const [text, setText] = useState(initial)
+  return (
+    <section className="space-y-3 rounded-2xl border border-line bg-surface p-5">
+      <h2 className="text-base font-semibold">Notes globales</h2>
+      <TextArea
+        label="Valables pour toutes les parties"
+        value={text}
+        onChange={setText}
+        maxLength={MEMORY_LIMITS.globalNotes}
+        rows={4}
+        hint="Tes préférences de jeu : ton, thèmes à éviter, longueur des réponses, règles maison…"
+      />
+      <Button disabled={text === initial || text.length > MEMORY_LIMITS.globalNotes} onClick={() => saveGlobalNotes(text.trim())}>
+        {text === initial ? 'Enregistré' : 'Enregistrer'}
+      </Button>
     </section>
   )
 }

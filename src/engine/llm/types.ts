@@ -12,8 +12,10 @@ export interface ChatMessage {
 
 export interface LlmRequest {
   model: string
-  /** Consignes système (univers, règles…). */
+  /** Consignes système stables (univers, règles…) : mises en cache si `cacheSystem`. */
   system?: string
+  /** Consignes système qui changent à chaque tour (mémoire, résumé) : jamais en cache. */
+  systemDynamic?: string
   messages: ChatMessage[]
   maxTokens: number
   temperature?: number

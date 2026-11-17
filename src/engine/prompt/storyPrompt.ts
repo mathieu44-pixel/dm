@@ -1,4 +1,5 @@
 import type { ChatMessage } from '../llm/types'
+import { MEMORY_LABELS, type MemoryEntry } from '../memory/types'
 import type { AvatarSnapshot, ThreadEntry } from '../session/types'
 
 /**
@@ -92,6 +93,34 @@ export function buildSystemPrompt(ctx: StoryContext): string {
     .join('\n\n')
 }
 
+export interface MemoryContext {
+  globalNotes: string
+  sessionNotes: string
+  memories: MemoryEntry[]
+  summary: string
+}
+
+/**
+ * Partie variable des consignes (notes, mémoire, résumé), envoyée après la partie stable
+ * pour ne pas casser le cache à chaque tour.
+ */
+export function buildMemoryPrompt(memory: MemoryContext): string {
+  const notes = [memory.globalNotes.trim(), memory.sessionNotes.trim()].filter(Boolean).join('\n\n')
+  const longTerm = memory.memories.filter((m) => m.kind === 'long')
+  const auto = memory.memories.filter((m) => m.kind !== 'long')
+  const order = { relation: 0, goal: 1, fact: 2, long: 3 } as const
+  auto.sort((a, b) => order[a.kind] - order[b.kind] || a.createdAt - b.createdAt)
+
+  return [
+    section('Notes du joueur (à respecter en priorité)', notes),
+    section('Souvenirs importants', longTerm.map((m) => `- ${m.text}`).join('\n')),
+    section('Mémoire de la partie', auto.map((m) => `- ${MEMORY_LABELS[m.kind]} : ${m.text}`).join('\n')),
+    section("Résumé de l'histoire jusqu'ici", memory.summary),
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+}
+
 /** Ajoute les messages en fusionnant deux messages consécutifs du même rôle (exigé par les API). */
 function pushMerged(messages: ChatMessage[], message: ChatMessage) {
   const last = messages[messages.length - 1]
@@ -109,12 +138,17 @@ export function entryToMessage(entry: ThreadEntry): ChatMessage {
  * « la partie commence » car les API exigent de commencer par l'utilisateur.
  * Au-delà du budget, les messages les plus anciens (hors prologue) sont retirés.
  */
-export function buildHistory(entries: ThreadEntry[], budget = HISTORY_CHAR_BUDGET): ChatMessage[] {
+export function buildHistory(entries: ThreadEntry[], budget = HISTORY_CHAR_BUDGET, summarizedUntil = -1): ChatMessage[] {
   if (entries.length === 0) return [{ role: 'user', content: START_MARKER }]
 
-  const [first, ...rest] = entries
+  const [first, ...others] = entries
   const head: ChatMessage[] = [{ role: 'user', content: START_MARKER }]
   pushMerged(head, entryToMessage(first))
+
+  // Les messages couverts par le résumé (index 1 à summarizedUntil) ne sont pas renvoyés.
+  const rest = summarizedUntil >= 1 ? others.slice(summarizedUntil) : others
+  if (summarizedUntil >= 1)
+    pushMerged(head, { role: 'user', content: '[La suite de la partie, jusqu\'aux derniers échanges, est résumée dans tes consignes.]' })
 
   // On garde les messages les plus récents qui tiennent dans le budget.
   let used = head.reduce((n, m) => n + m.content.length, 0)
