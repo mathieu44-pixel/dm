@@ -415,7 +415,7 @@ function AiActions({
         </IconButton>
       )}
       <IconButton label="Modifier" onClick={onEdit}>
-        ✎
+        <IconEdit />
       </IconButton>
       {!isPrologue && (
         <IconButton label="Supprimer" onClick={onDelete}>
