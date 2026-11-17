@@ -16,7 +16,7 @@ export default function AvatarsPage() {
 
   return (
     <>
-      <PageHeader title="Mes avatars" />
+      <PageHeader title="Mes avatars" back={false} />
       <main className="space-y-4 px-4 py-6 pb-28">
         <p className="text-sm leading-relaxed text-muted">
           Ton avatar, c'est toi dans l'histoire : son nom et ce que les personnages savent de lui. L'avatar par défaut est

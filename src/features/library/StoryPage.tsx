@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
+import { useSessionSummaries } from '../../data/history'
 import { createSession, useSessionsForStory } from '../../data/sessions'
 import { deleteStory, useAvatars, useDefaultAvatarId, useStory } from '../../data/stories'
 import type { Story } from '../../data/types'
 import { Button } from '../../ui/Button'
 import { NarrativeView } from '../../ui/NarrativeView'
 import { PageHeader } from '../../ui/PageHeader'
+import { SessionList } from '../../ui/SessionList'
 import { StoryCover } from '../../ui/StoryCover'
 
 /** Fiche d'une histoire : présentation, personnages, aperçu du prologue. */
@@ -14,6 +16,7 @@ export default function StoryPage() {
   const navigate = useNavigate()
   const data = useStory(id)
   const sessions = useSessionsForStory(id)
+  const summaries = useSessionSummaries(id)
   const [starting, setStarting] = useState(false)
 
   if (data === undefined) return null
@@ -64,6 +67,13 @@ export default function StoryPage() {
                 </li>
               ))}
             </ul>
+          </section>
+        )}
+
+        {summaries && summaries.length > 0 && (
+          <section className="mt-8 px-5">
+            <h3 className="mb-3 text-sm font-medium text-muted">Mes parties ({summaries.length})</h3>
+            <SessionList items={summaries} showStoryTitle={false} />
           </section>
         )}
 

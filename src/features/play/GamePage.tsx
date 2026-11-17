@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
+import { setTextSize, stepTextSize, TEXT_SIZES, useTextSize } from '../../data/preferences'
 import { deleteSession } from '../../data/sessions'
+import { useSettings } from '../../data/settings'
+import { activeProvider } from '../../data/settingsModel'
 import { formatUsd } from '../../engine/llm/models'
 import { activeContent, type Message } from '../../engine/session/types'
 import { Button } from '../../ui/Button'
@@ -13,6 +16,8 @@ export default function GamePage() {
   const { sessionId } = useParams()
   const navigate = useNavigate()
   const game = useGame(sessionId)
+  const textSize = useTextSize()
+  const settings = useSettings()
   const { data, thread, streaming, busy } = game
 
   const [input, setInput] = useState('')
@@ -264,7 +269,20 @@ export default function GamePage() {
             <Row label="Avatar" value={session.avatar?.name ?? 'Aucun'} />
             <Row label="Tours joués" value={String(session.turn)} />
             <Row label="Coût estimé" value={formatUsd(session.costUsd)} />
+            {settings && <Row label="Modèle" value={activeProvider(settings).storyModel} />}
           </dl>
+          <div className="flex items-center justify-between rounded-xl bg-surface-2 px-4 py-2 text-sm">
+            <span className="text-muted">Taille du texte</span>
+            <span className="flex items-center gap-2">
+              <button type="button" aria-label="Réduire le texte" onClick={() => setTextSize(stepTextSize(textSize, -1))} className="h-10 w-10 rounded-full border border-line text-sm">
+                A−
+              </button>
+              <span className="w-20 text-center text-xs">{TEXT_SIZES.find((t) => t.id === textSize)?.label}</span>
+              <button type="button" aria-label="Agrandir le texte" onClick={() => setTextSize(stepTextSize(textSize, 1))} className="h-10 w-10 rounded-full border border-line text-lg">
+                A+
+              </button>
+            </span>
+          </div>
           <div className="space-y-2 rounded-xl bg-surface-2 p-3 text-xs leading-relaxed text-muted">
             <p className="font-medium text-text">Guide</p>
             <p>• Écris tes paroles normalement et tes actions entre *astérisques* (bouton *).</p>
@@ -409,7 +427,7 @@ function AiActions({
           <IconRegenerate />
         </IconButton>
       )}
-      {isLast && (
+      {isLast && !message.ooc && (
         <IconButton label="Continuer" onClick={onContinue}>
           <IconContinue />
         </IconButton>

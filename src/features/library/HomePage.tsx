@@ -20,22 +20,6 @@ export default function HomePage() {
           <p className="text-[0.65rem] uppercase tracking-[0.3em] text-muted">Dungeon Mistress</p>
           <h1 className="font-[family-name:var(--font-story)] text-4xl font-semibold text-accent">DM</h1>
         </div>
-        <nav className="flex gap-2">
-          <Link
-            to="/avatars"
-            aria-label="Mes avatars"
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-line text-lg text-muted hover:text-text"
-          >
-            ☺
-          </Link>
-          <Link
-            to="/reglages"
-            aria-label="Réglages"
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-line text-lg text-muted hover:text-text"
-          >
-            ⚙
-          </Link>
-        </nav>
       </header>
 
       {settings && !ready && (

@@ -5,7 +5,7 @@ import { parseNarrative } from '../engine/parser/narrative'
 export function NarrativeView({ text }: { text: string }) {
   const segments = useMemo(() => parseNarrative(text), [text])
   return (
-    <div className="space-y-4 font-[family-name:var(--font-story)] text-[1.05rem] leading-[1.8]">
+    <div className="space-y-4 font-[family-name:var(--font-story)] text-[length:var(--story-size,1.05rem)] leading-[1.8]">
       {segments.map((segment, i) => {
         switch (segment.type) {
           case 'narration':

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { downloadJson, exportAll, importBackup, parseBackup, summarizeBackup } from '../../data/backup'
+import { setTextSize, TEXT_SIZES, useTextSize } from '../../data/preferences'
 import { setActiveProvider, updateProviderSettings, useSettings } from '../../data/settings'
 import { maskApiKey } from '../../data/settingsModel'
 import type { ProviderSettings } from '../../data/types'
@@ -27,7 +28,7 @@ export default function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Réglages" />
+      <PageHeader title="Réglages" back={false} />
       <main className="space-y-6 px-4 py-6">
         <section className="rounded-2xl border border-line bg-surface p-5">
           <h2 className="text-base font-semibold">Fournisseur d'IA</h2>
@@ -56,10 +57,12 @@ export default function SettingsPage() {
         {/* `key` : on repart d'un état propre quand on change de fournisseur. */}
         <ProviderPanel key={provider} provider={provider} config={settings[provider]} onSaved={flashSaved} />
 
+        <ReadingPanel />
+
         <BackupPanel />
 
         {savedFlash && (
-          <p role="status" className="fixed inset-x-0 bottom-6 mx-auto w-fit rounded-full bg-surface-2 px-4 py-2 text-sm shadow-lg">
+          <p role="status" className="fixed inset-x-0 bottom-24 mx-auto w-fit rounded-full bg-surface-2 px-4 py-2 text-sm shadow-lg">
             Enregistré
           </p>
         )}
@@ -426,6 +429,38 @@ function BackupPanel() {
           {status.ok ? '✓' : '✗'} {status.text}
         </p>
       )}
+    </section>
+  )
+}
+
+/** Confort de lecture. */
+function ReadingPanel() {
+  const size = useTextSize()
+  return (
+    <section className="rounded-2xl border border-line bg-surface p-5">
+      <h2 className="text-base font-semibold">Lecture</h2>
+      <p className="mt-1 text-sm text-muted">Taille du texte de l'histoire.</p>
+      <div className="mt-4 grid grid-cols-4 gap-2">
+        {TEXT_SIZES.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => setTextSize(s.id)}
+            className={
+              'rounded-xl border px-2 py-3 text-xs transition ' +
+              (size === s.id ? 'border-accent bg-accent-soft text-text' : 'border-line bg-surface-2 text-muted')
+            }
+          >
+            <span className="block font-[family-name:var(--font-story)] leading-none text-text" style={{ fontSize: `${s.rem}rem` }}>
+              Aa
+            </span>
+            <span className="mt-1 block">{s.label}</span>
+          </button>
+        ))}
+      </div>
+      <p className="mt-4 rounded-xl bg-ink p-4 font-[family-name:var(--font-story)] text-[length:var(--story-size,1.05rem)] leading-[1.8] text-text/70">
+        「La pluie bat les volets de l'auberge.」
+      </p>
     </section>
   )
 }
