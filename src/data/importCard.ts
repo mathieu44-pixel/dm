@@ -54,7 +54,7 @@ export async function importCharacterFile(file: File): Promise<string> {
   const isPng = file.type === 'image/png' || /\.png$/i.test(file.name)
   let raw: unknown
   if (isPng) {
-    raw = extractCardFromPng(new Uint8Array(await file.arrayBuffer()))
+    raw = await extractCardFromPng(new Uint8Array(await file.arrayBuffer()))
     if (!raw) throw new Error("Cette image PNG ne contient pas de carte de personnage SillyTavern.")
   } else {
     try {

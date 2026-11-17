@@ -62,12 +62,22 @@ function decodeBase64Utf8(b64: string): string {
   return new TextDecoder().decode(bytes)
 }
 
-/** Extrait le JSON de la carte caché dans un PNG (bloc tEXt « ccv3 » de préférence, sinon « chara »). */
-export function extractCardFromPng(bytes: Uint8Array): unknown | null {
+/** Décompresse des données zlib (blocs PNG zTXt / iTXt compressés). */
+async function inflate(data: Uint8Array): Promise<Uint8Array> {
+  const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate'))
+  return new Uint8Array(await new Response(stream).arrayBuffer())
+}
+
+/**
+ * Extrait le JSON de la carte caché dans un PNG : bloc « ccv3 » (V3) de préférence, sinon « chara ».
+ * Les blocs peuvent être en clair (tEXt), compressés (zTXt) ou internationaux (iTXt).
+ */
+export async function extractCardFromPng(bytes: Uint8Array): Promise<unknown | null> {
   const signature = [137, 80, 78, 71, 13, 10, 26, 10]
   if (bytes.length < 8 || signature.some((b, i) => bytes[i] !== b)) throw new Error("Ce fichier n'est pas une image PNG valide.")
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   const latin1 = new TextDecoder('latin1')
+  const utf8 = new TextDecoder()
   const found: Record<string, string> = {}
   let offset = 8
   while (offset + 8 <= bytes.length) {
@@ -76,12 +86,24 @@ export function extractCardFromPng(bytes: Uint8Array): unknown | null {
     const dataStart = offset + 8
     const dataEnd = dataStart + length
     if (dataEnd > bytes.length) break
-    if (type === 'tEXt') {
+    if (type === 'tEXt' || type === 'zTXt' || type === 'iTXt') {
       const chunk = bytes.subarray(dataStart, dataEnd)
       const sep = chunk.indexOf(0)
-      if (sep > 0) {
-        const keyword = latin1.decode(chunk.subarray(0, sep)).toLowerCase()
-        if (keyword === 'chara' || keyword === 'ccv3') found[keyword] = latin1.decode(chunk.subarray(sep + 1))
+      const keyword = sep > 0 ? latin1.decode(chunk.subarray(0, sep)).toLowerCase() : ''
+      if ((keyword === 'chara' || keyword === 'ccv3') && !(keyword in found)) {
+        if (type === 'tEXt') {
+          found[keyword] = latin1.decode(chunk.subarray(sep + 1))
+        } else if (type === 'zTXt') {
+          // mot-clé \0 méthode(1 octet) données compressées
+          found[keyword] = latin1.decode(await inflate(chunk.subarray(sep + 2)))
+        } else {
+          // iTXt : mot-clé \0 compressé(1) méthode(1) langue \0 mot-clé traduit \0 texte
+          const compressed = chunk[sep + 1] === 1
+          const langEnd = chunk.indexOf(0, sep + 3)
+          const transEnd = chunk.indexOf(0, langEnd + 1)
+          const text = chunk.subarray(transEnd + 1)
+          found[keyword] = utf8.decode(compressed ? await inflate(text) : text)
+        }
       }
     }
     if (type === 'IEND') break
@@ -89,7 +111,9 @@ export function extractCardFromPng(bytes: Uint8Array): unknown | null {
   }
   const raw = found.ccv3 ?? found.chara
   if (!raw) return null
-  return JSON.parse(decodeBase64Utf8(raw))
+  const trimmed = raw.trim()
+  // Certains outils écrivent le JSON en clair plutôt qu'en base64.
+  return JSON.parse(trimmed.startsWith('{') ? trimmed : decodeBase64Utf8(trimmed))
 }
 
 /** Remplace les variables SillyTavern ({{char}}, {{user}}, <BOT>, <USER>). */

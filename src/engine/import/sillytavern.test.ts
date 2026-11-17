@@ -20,11 +20,19 @@ const v2 = {
   },
 }
 
-/** Construit un PNG minimal avec un bloc tEXt « chara » (CRC fictif : il n'est pas vérifié). */
-function pngWithCard(card: unknown): Uint8Array {
+async function deflate(data: Uint8Array): Promise<Uint8Array> {
+  const stream = new Blob([data]).stream().pipeThrough(new CompressionStream('deflate'))
+  return new Uint8Array(await new Response(stream).arrayBuffer())
+}
+
+/** Construit un PNG minimal avec un bloc « chara » (CRC fictif : il n'est pas vérifié). */
+async function pngWithCard(card: unknown, type: 'tEXt' | 'zTXt' = 'tEXt'): Promise<Uint8Array> {
   const json = JSON.stringify(card)
   const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(json)))
-  const payload = new TextEncoder().encode(`chara\0${b64}`)
+  const payload =
+    type === 'tEXt'
+      ? new TextEncoder().encode(`chara\0${b64}`)
+      : new Uint8Array([...new TextEncoder().encode('chara\0'), 0, ...(await deflate(new TextEncoder().encode(b64)))])
   const chunk = (type: string, data: Uint8Array) => {
     const out = new Uint8Array(12 + data.length)
     new DataView(out.buffer).setUint32(0, data.length)
@@ -32,7 +40,7 @@ function pngWithCard(card: unknown): Uint8Array {
     out.set(data, 8)
     return out
   }
-  const parts = [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', new Uint8Array(13)), chunk('tEXt', payload), chunk('IEND', new Uint8Array(0))]
+  const parts = [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', new Uint8Array(13)), chunk(type, payload), chunk('IEND', new Uint8Array(0))]
   const total = new Uint8Array(parts.reduce((n, p) => n + p.length, 0))
   let o = 0
   for (const p of parts) {
@@ -61,15 +69,20 @@ describe('parseCharacterCard', () => {
 })
 
 describe('extractCardFromPng', () => {
-  it('retrouve la carte cachée dans le PNG, accents compris', () => {
-    const card = extractCardFromPng(pngWithCard({ ...v2, data: { ...v2.data, name: 'Élodie' } })) as typeof v2
+  it('retrouve la carte cachée dans le PNG, accents compris', async () => {
+    const card = (await extractCardFromPng(await pngWithCard({ ...v2, data: { ...v2.data, name: 'Élodie' } }))) as typeof v2
     expect(card.data.name).toBe('Élodie')
   })
 
-  it('renvoie null pour un PNG sans carte et refuse un fichier non PNG', () => {
-    const empty = pngWithCard({}).slice(0, 8 + 25) // signature + IHDR seulement
-    expect(extractCardFromPng(empty)).toBeNull()
-    expect(() => extractCardFromPng(new Uint8Array([1, 2, 3]))).toThrow(/PNG/)
+  it('lit aussi un bloc compressé (zTXt)', async () => {
+    const card = (await extractCardFromPng(await pngWithCard(v2, 'zTXt'))) as typeof v2
+    expect(card.data.name).toBe('Lyra')
+  })
+
+  it('renvoie null pour un PNG sans carte et refuse un fichier non PNG', async () => {
+    const empty = (await pngWithCard({})).slice(0, 8 + 25) // signature + IHDR seulement
+    expect(await extractCardFromPng(empty)).toBeNull()
+    await expect(extractCardFromPng(new Uint8Array([1, 2, 3]))).rejects.toThrow(/PNG/)
   })
 })
 
