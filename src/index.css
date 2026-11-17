@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+/* Identité visuelle DM : nuit violette, accent ambre (chandelle de meneuse de jeu) */
+@theme {
+  --color-ink: #0f0e13;
+  --color-surface: #1a1822;
+  --color-surface-2: #24212f;
+  --color-line: #34303f;
+  --color-text: #ece8f4;
+  --color-muted: #9a93ab;
+  --color-accent: #e8b04b;
+  --color-accent-soft: #e8b04b26;
+
+  --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-story: "Literata", "Georgia", "Times New Roman", serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ink);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
