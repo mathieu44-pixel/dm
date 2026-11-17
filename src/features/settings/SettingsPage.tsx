@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { downloadJson, exportAll, importBackup, parseBackup, summarizeBackup } from '../../data/backup'
 import { setActiveProvider, updateProviderSettings, useSettings } from '../../data/settings'
 import { maskApiKey } from '../../data/settingsModel'
 import type { ProviderSettings } from '../../data/types'
@@ -54,6 +55,8 @@ export default function SettingsPage() {
 
         {/* `key` : on repart d'un état propre quand on change de fournisseur. */}
         <ProviderPanel key={provider} provider={provider} config={settings[provider]} onSaved={flashSaved} />
+
+        <BackupPanel />
 
         {savedFlash && (
           <p role="status" className="fixed inset-x-0 bottom-6 mx-auto w-fit rounded-full bg-surface-2 px-4 py-2 text-sm shadow-lg">
@@ -366,5 +369,63 @@ function ModelPicker({
         })}
       </div>
     </fieldset>
+  )
+}
+
+/** Sauvegarde et restauration de toutes les données (hors clés API). */
+function BackupPanel() {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null)
+
+  const doExport = async () => {
+    const backup = await exportAll()
+    downloadJson(`dm-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`, backup)
+    setStatus({ ok: true, text: `Sauvegarde téléchargée : ${summarizeBackup(backup)}.` })
+  }
+
+  const doImport = async (file: File) => {
+    try {
+      const backup = parseBackup(await file.text())
+      if (!window.confirm(`Importer ${summarizeBackup(backup)} ? Les éléments identiques seront remplacés.`)) return
+      await importBackup(backup)
+      setStatus({ ok: true, text: `Import réussi : ${summarizeBackup(backup)}.` })
+    } catch (error) {
+      setStatus({ ok: false, text: error instanceof Error ? error.message : String(error) })
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-line bg-surface p-5">
+      <h2 className="text-base font-semibold">Sauvegarde</h2>
+      <p className="mt-1 text-sm leading-relaxed text-muted">
+        Tes histoires et parties sont stockées sur cet appareil. Exporte-les régulièrement : le fichier sert aussi à les
+        transférer sur un autre appareil. Les clés API ne sont jamais incluses.
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button onClick={doExport}>Exporter mes données</Button>
+        <Button variant="secondary" onClick={() => fileRef.current?.click()}>
+          Importer une sauvegarde
+        </Button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            if (file) void doImport(file)
+          }}
+        />
+      </div>
+      {status && (
+        <p
+          role="status"
+          className={'mt-4 rounded-xl px-4 py-3 text-sm ' + (status.ok ? 'bg-emerald-400/10 text-emerald-300' : 'bg-red-400/10 text-red-300')}
+        >
+          {status.ok ? '✓' : '✗'} {status.text}
+        </p>
+      )}
+    </section>
   )
 }

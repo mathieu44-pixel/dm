@@ -5,6 +5,7 @@ import AvatarsPage from '../features/avatars/AvatarsPage'
 import StoryEditorPage from '../features/editor/StoryEditorPage'
 import HomePage from '../features/library/HomePage'
 import StoryPage from '../features/library/StoryPage'
+import GamePage from '../features/play/GamePage'
 import SettingsPage from '../features/settings/SettingsPage'
 
 /**
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/histoire/:id" element={<StoryPage />} />
           <Route path="/histoire/:id/modifier" element={<StoryEditorPage />} />
+          <Route path="/partie/:sessionId" element={<GamePage />} />
           <Route path="/avatars" element={<AvatarsPage />} />
           <Route path="/reglages" element={<SettingsPage />} />
           <Route path="*" element={<HomePage />} />

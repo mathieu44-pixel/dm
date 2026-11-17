@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { deleteStory, useStory } from '../../data/stories'
+import { createSession, useSessionsForStory } from '../../data/sessions'
+import { deleteStory, useAvatars, useDefaultAvatarId, useStory } from '../../data/stories'
+import type { Story } from '../../data/types'
 import { Button } from '../../ui/Button'
 import { NarrativeView } from '../../ui/NarrativeView'
 import { PageHeader } from '../../ui/PageHeader'
@@ -10,6 +13,8 @@ export default function StoryPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const data = useStory(id)
+  const sessions = useSessionsForStory(id)
+  const [starting, setStarting] = useState(false)
 
   if (data === undefined) return null
   if (data === null)
@@ -83,15 +88,112 @@ export default function StoryPage() {
         >
           Modifier
         </Link>
-        <button
-          type="button"
-          disabled
-          title="Disponible dans la prochaine version"
-          className="min-h-12 flex-1 rounded-xl bg-accent text-sm font-medium text-ink opacity-40"
-        >
-          Jouer (bientôt)
-        </button>
+        {sessions && sessions.length > 0 ? (
+          <>
+            <button
+              type="button"
+              onClick={() => setStarting(true)}
+              className="min-h-12 flex-1 rounded-xl border border-line bg-surface-2 text-sm font-medium"
+            >
+              Nouvelle partie
+            </button>
+            <Link
+              to={`/partie/${sessions[0].id}`}
+              className="flex min-h-12 flex-1 items-center justify-center rounded-xl bg-accent text-sm font-medium text-ink"
+            >
+              Continuer
+            </Link>
+          </>
+        ) : (
+          <button type="button" onClick={() => setStarting(true)} className="min-h-12 flex-1 rounded-xl bg-accent text-sm font-medium text-ink">
+            Jouer
+          </button>
+        )}
       </footer>
+
+      {starting && <StartSheet story={story} onClose={() => setStarting(false)} />}
     </>
+  )
+}
+
+/** Lancement d'une partie : choix de l'avatar (et du point de départ s'il y en a plusieurs). */
+function StartSheet({ story, onClose }: { story: Story; onClose: () => void }) {
+  const navigate = useNavigate()
+  const avatars = useAvatars()
+  const defaultId = useDefaultAvatarId()
+  const [avatarId, setAvatarId] = useState<string | null | undefined>(undefined)
+  const [startId, setStartId] = useState(story.startSettings[0]?.id)
+  const chosenAvatar = avatarId === undefined ? (defaultId ?? null) : avatarId
+
+  const start = async () => {
+    const avatar = avatars?.find((a) => a.id === chosenAvatar) ?? null
+    const sessionId = await createSession(story, startId, avatar)
+    navigate(`/partie/${sessionId}`)
+  }
+
+  return (
+    <div className="fixed inset-0 z-20 flex items-end bg-black/60" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-label="Nouvelle partie"
+        onClick={(e) => e.stopPropagation()}
+        className="mx-auto max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-t-3xl border-t border-line bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+      >
+        <div className="mx-auto h-1 w-10 rounded-full bg-line" />
+        <h2 className="text-lg font-semibold">Nouvelle partie</h2>
+
+        <fieldset className="space-y-2">
+          <legend className="mb-2 text-sm font-medium">Qui incarnes-tu ?</legend>
+          {avatars?.map((a) => (
+            <label
+              key={a.id}
+              className={
+                'flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 text-sm ' +
+                (chosenAvatar === a.id ? 'border-accent bg-accent-soft' : 'border-line bg-surface-2')
+              }
+            >
+              <input type="radio" name="avatar" checked={chosenAvatar === a.id} onChange={() => setAvatarId(a.id)} className="mt-1" />
+              <span>
+                <span className="font-medium">{a.name}</span>
+                {a.details && <span className="line-clamp-2 block text-xs text-muted">{a.details}</span>}
+              </span>
+            </label>
+          ))}
+          <label
+            className={
+              'flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm ' +
+              (chosenAvatar === null ? 'border-accent bg-accent-soft' : 'border-line bg-surface-2')
+            }
+          >
+            <input type="radio" name="avatar" checked={chosenAvatar === null} onChange={() => setAvatarId(null)} />
+            <span>Sans avatar (personnage anonyme)</span>
+          </label>
+          <Link to="/avatars" className="block text-xs text-accent underline">
+            Créer ou modifier mes avatars
+          </Link>
+        </fieldset>
+
+        {story.startSettings.length > 1 && (
+          <fieldset className="space-y-2">
+            <legend className="mb-2 text-sm font-medium">Point de départ</legend>
+            {story.startSettings.map((s) => (
+              <label key={s.id} className="flex items-center gap-3 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm">
+                <input type="radio" name="start" checked={startId === s.id} onChange={() => setStartId(s.id)} />
+                {s.name}
+              </label>
+            ))}
+          </fieldset>
+        )}
+
+        <div className="flex gap-3 pt-2">
+          <Button variant="secondary" className="flex-1" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button className="flex-1" onClick={start}>
+            Commencer
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }

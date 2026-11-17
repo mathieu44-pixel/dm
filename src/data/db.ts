@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
+import type { Message, Session } from '../engine/session/types'
 import type { AppSettings, Avatar, Character, MetaEntry, Story } from './types'
 
 /**
@@ -11,6 +12,8 @@ export class DmDatabase extends Dexie {
   characters!: EntityTable<Character, 'id'>
   avatars!: EntityTable<Avatar, 'id'>
   meta!: EntityTable<MetaEntry, 'key'>
+  sessions!: EntityTable<Session, 'id'>
+  messages!: EntityTable<Message, 'id'>
 
   constructor(name = 'dm') {
     super(name)
@@ -24,6 +27,16 @@ export class DmDatabase extends Dexie {
       characters: 'id',
       avatars: 'id, updatedAt',
       meta: 'key',
+    })
+    // v0.1c : parties et messages.
+    this.version(3).stores({
+      settings: 'id',
+      stories: 'id, updatedAt, lastPlayedAt',
+      characters: 'id',
+      avatars: 'id, updatedAt',
+      meta: 'key',
+      sessions: 'id, storyId, lastPlayedAt',
+      messages: 'id, sessionId',
     })
   }
 }

@@ -32,7 +32,13 @@ function params(request: LlmRequest) {
   return {
     model: request.model,
     max_tokens: request.maxTokens,
-    ...(request.system ? { system: request.system } : {}),
+    ...(request.system
+      ? {
+          system: request.cacheSystem
+            ? [{ type: 'text' as const, text: request.system, cache_control: { type: 'ephemeral' as const } }]
+            : request.system,
+        }
+      : {}),
     ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
     messages: request.messages.map((m) => ({ role: m.role, content: m.content })),
   }

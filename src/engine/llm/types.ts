@@ -18,6 +18,8 @@ export interface LlmRequest {
   maxTokens: number
   temperature?: number
   signal?: AbortSignal
+  /** Met les consignes système en cache (Anthropic) : elles sont renvoyées à chaque tour. */
+  cacheSystem?: boolean
 }
 
 /** Compteurs de tokens, harmonisés entre fournisseurs. */
