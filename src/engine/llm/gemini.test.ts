@@ -6,6 +6,7 @@ import {
   filterTextModels,
   parseSseBuffer,
   pickDefaultGeminiModels,
+  retryDelayMs,
   toUsage,
 } from './gemini'
 
@@ -99,5 +100,11 @@ describe('filterTextModels / pickDefaultGeminiModels', () => {
 
   it('gère une liste vide', () => {
     expect(pickDefaultGeminiModels([])).toEqual({ story: undefined, utility: undefined })
+  })
+})
+
+describe('retryDelayMs', () => {
+  it('espace les relances : 1 s, 3 s, 7 s', () => {
+    expect([1, 2, 3].map(retryDelayMs)).toEqual([1000, 3000, 7000])
   })
 })

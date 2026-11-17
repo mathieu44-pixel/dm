@@ -35,8 +35,11 @@ export function describeLlmError(error: unknown): string {
       return provider === 'gemini'
         ? 'Quota gratuit de Gemini atteint (429). Patiente une minute, ou jusqu\'à demain pour la limite journalière.'
         : 'Trop de requêtes ou limite de dépense atteinte (429). Patiente un peu ou vérifie ton crédit.'
+    case 503:
     case 529:
-      return 'Les serveurs sont surchargés (529). Réessaie dans quelques instants.'
+      return provider === 'gemini'
+        ? `Google est surchargé pour ce modèle (${status}), même après plusieurs essais. Réessaie plus tard ou choisis l'autre modèle gratuit.`
+        : `Les serveurs sont surchargés (${status}). Réessaie dans quelques instants.`
   }
   if (typeof status === 'number' && status >= 500) return `Erreur côté serveur (${status}). Réessaie dans quelques instants.`
 

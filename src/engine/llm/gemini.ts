@@ -158,11 +158,45 @@ async function throwHttpError(response: Response): Promise<never> {
   throw new LlmError(detail || `HTTP ${response.status}`, 'gemini', { status: response.status })
 }
 
+/** Codes HTTP passagers (surcharge, quota par minute) : on réessaie avant d'abandonner. */
+export const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504])
+
+/** Délai avant la tentative n° `attempt` (1, 2…) : 1 s, 3 s, 7 s. */
+export function retryDelayMs(attempt: number): number {
+  return (2 ** attempt - 1) * 1000
+}
+
+function wait(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms)
+    signal?.addEventListener('abort', () => {
+      clearTimeout(timer)
+      reject(new DOMException('Aborted', 'AbortError'))
+    })
+  })
+}
+
+/**
+ * fetch avec relances sur les erreurs passagères (avant tout envoi de texte à l'écran).
+ * Une erreur « quota 0 » (modèle hors offre gratuite) n'est pas relancée : elle ne passera jamais.
+ */
+async function fetchWithRetry(url: string, init: RequestInit, maxRetries = 3): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const response = await fetch(url, init)
+    if (response.ok || !RETRYABLE_STATUS.has(response.status) || attempt >= maxRetries) return response
+    if (response.status === 429) {
+      const body = await response.clone().text()
+      if (/limit:\s*0\b/i.test(body)) return response
+    }
+    await wait(retryDelayMs(attempt + 1), init.signal ?? undefined)
+  }
+}
+
 export function createGeminiProvider(apiKey: string): LlmProvider {
   const headers = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey }
 
   async function complete(request: LlmRequest): Promise<LlmResult> {
-    const response = await fetch(`${BASE_URL}/models/${encodeURIComponent(request.model)}:generateContent`, {
+    const response = await fetchWithRetry(`${BASE_URL}/models/${encodeURIComponent(request.model)}:generateContent`, {
       method: 'POST',
       headers,
       body: JSON.stringify(buildGeminiBody(request)),
@@ -175,7 +209,7 @@ export function createGeminiProvider(apiKey: string): LlmProvider {
   }
 
   async function stream(request: LlmRequest, onText: (delta: string) => void): Promise<LlmResult> {
-    const response = await fetch(
+    const response = await fetchWithRetry(
       `${BASE_URL}/models/${encodeURIComponent(request.model)}:streamGenerateContent?alt=sse`,
       { method: 'POST', headers, body: JSON.stringify(buildGeminiBody(request)), signal: request.signal },
     )

@@ -16,6 +16,11 @@ describe('describeLlmError', () => {
 
   it('gère les erreurs serveur génériques', () => {
     expect(describeLlmError(httpError(503))).toMatch(/503/)
+    expect(describeLlmError(httpError(502))).toMatch(/502/)
+  })
+
+  it('explique une surcharge de Gemini', () => {
+    expect(describeLlmError(Object.assign(new Error('UNAVAILABLE'), { status: 503, provider: 'gemini' }))).toMatch(/Google est surchargé/)
   })
 
   it('gère une interruption volontaire', () => {
