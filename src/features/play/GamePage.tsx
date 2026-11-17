@@ -4,6 +4,7 @@ import { deleteSession } from '../../data/sessions'
 import { formatUsd } from '../../engine/llm/models'
 import { activeContent, type Message } from '../../engine/session/types'
 import { Button } from '../../ui/Button'
+import { IconContinue, IconEdit, IconNext, IconPrev, IconRegenerate, IconTrash } from '../../ui/icons'
 import { NarrativeView } from '../../ui/NarrativeView'
 import { useGame } from './useGame'
 
@@ -268,7 +269,7 @@ export default function GamePage() {
             <p className="font-medium text-text">Guide</p>
             <p>• Écris tes paroles normalement et tes actions entre *astérisques* (bouton *).</p>
             <p>• /OOC + message pour parler à l'IA hors de l'histoire.</p>
-            <p>• Sous chaque réponse : ↻ régénérer, ⏵ continuer, ✎ modifier, 🗑 supprimer, ‹ › changer de version.</p>
+            <p>• Sous chaque réponse : régénérer (flèche circulaire), continuer (double chevron), modifier (crayon), supprimer (corbeille), et flèches ‹ › pour changer de version.</p>
           </div>
           <Button variant="danger" className="w-full" onClick={removeSession}>
             Supprimer cette partie
@@ -331,10 +332,10 @@ function UserBubble({
       {canEdit && (
         <div className="mt-1 flex gap-1 text-muted">
           <IconButton label="Modifier" onClick={onEdit}>
-            ✎
+            <IconEdit />
           </IconButton>
           <IconButton label="Supprimer" onClick={onDelete}>
-            🗑
+            <IconTrash />
           </IconButton>
         </div>
       )}
@@ -393,24 +394,24 @@ function AiActions({
       {count > 1 && (
         <span className="mr-1 flex items-center rounded-full border border-line text-xs">
           <IconButton label="Version précédente" onClick={() => onVariant(message.activeVariant - 1)} disabled={message.activeVariant === 0}>
-            ‹
+            <IconPrev />
           </IconButton>
           <span>
             {message.activeVariant + 1}/{count}
           </span>
           <IconButton label="Version suivante" onClick={() => onVariant(message.activeVariant + 1)} disabled={message.activeVariant === count - 1}>
-            ›
+            <IconNext />
           </IconButton>
         </span>
       )}
       {!isPrologue && (
         <IconButton label="Régénérer" onClick={onRegenerate}>
-          ↻
+          <IconRegenerate />
         </IconButton>
       )}
       {isLast && (
         <IconButton label="Continuer" onClick={onContinue}>
-          ⏵
+          <IconContinue />
         </IconButton>
       )}
       <IconButton label="Modifier" onClick={onEdit}>
@@ -418,7 +419,7 @@ function AiActions({
       </IconButton>
       {!isPrologue && (
         <IconButton label="Supprimer" onClick={onDelete}>
-          🗑
+          <IconTrash />
         </IconButton>
       )}
     </div>
