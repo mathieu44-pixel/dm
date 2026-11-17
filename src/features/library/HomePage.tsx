@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { downloadBackup, snoozeBackupReminder, useBackupReminder } from '../../data/backup'
-import { importCharacterFile } from '../../data/importCard'
+import { importCharacterFile, importCharacterFromUrl } from '../../data/importCard'
+import { CARD_SITES, splitLinks } from '../../engine/import/cardUrl'
 import { daysSince } from '../../engine/session/backupReminder'
 import type { StoryMode } from '../../data/types'
 import { APP_VERSION, ROADMAP, isDelivered } from '../../app/version'
@@ -147,6 +148,7 @@ export default function HomePage() {
               }}
             />
             {importError && <p className="mt-2 text-xs text-red-300">{importError}</p>}
+            <LinkImport onSingle={(id) => navigate(`/histoire/${id}`)} />
           </div>
         )}
 
@@ -200,5 +202,76 @@ export default function HomePage() {
         )}
       </details>
     </main>
+  )
+}
+
+/** Import de cartes par lien (un lien par ligne). */
+function LinkImport({ onSingle }: { onSingle: (storyId: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [results, setResults] = useState<{ link: string; ok: boolean; message: string }[]>([])
+
+  const run = async () => {
+    const links = splitLinks(text)
+    if (!links.length) {
+      setResults([{ link: '', ok: false, message: 'Colle au moins un lien commençant par https://' }])
+      return
+    }
+    setBusy(true)
+    setResults([])
+    const done: { link: string; ok: boolean; message: string; id?: string }[] = []
+    for (const link of links) {
+      try {
+        const id = await importCharacterFromUrl(link)
+        done.push({ link, ok: true, message: 'Importé', id })
+      } catch (e) {
+        done.push({ link, ok: false, message: e instanceof Error ? e.message : String(e) })
+      }
+      setResults([...done])
+    }
+    setBusy(false)
+    if (done.length === 1 && done[0].ok && done[0].id) onSingle(done[0].id)
+    else if (done.every((d) => d.ok)) setText('')
+  }
+
+  if (!open)
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="mt-2 w-full rounded-xl border border-dashed border-line px-4 py-3 text-sm text-muted">
+        🔗 Importer depuis un lien
+      </button>
+    )
+  return (
+    <div className="mt-2 space-y-2 rounded-xl border border-line p-3">
+      <p className="text-xs leading-relaxed text-muted">
+        Colle le lien d'une carte (un par ligne). Sites pris en charge : {Object.values(CARD_SITES).join(', ')}.
+      </p>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={3}
+        disabled={busy}
+        placeholder="https://chub.ai/characters/auteur/personnage"
+        className="w-full rounded-xl border border-line bg-surface p-3 text-sm outline-none focus:border-accent"
+      />
+      <div className="flex gap-2">
+        <button type="button" disabled={busy || !text.trim()} onClick={() => void run()} className="rounded-full bg-accent px-4 py-2 text-xs font-medium text-ink disabled:opacity-40">
+          {busy ? 'Import…' : 'Importer'}
+        </button>
+        <button type="button" disabled={busy} onClick={() => setOpen(false)} className="px-3 py-2 text-xs text-muted">
+          Fermer
+        </button>
+      </div>
+      {results.length > 0 && (
+        <ul className="space-y-1 text-xs">
+          {results.map((r, i) => (
+            <li key={i} className={r.ok ? 'text-emerald-300' : 'text-red-300'}>
+              {r.ok ? '✓' : '✗'} {r.link && <span className="break-all text-muted">{r.link} — </span>}
+              {r.message}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }

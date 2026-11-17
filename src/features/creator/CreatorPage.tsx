@@ -98,17 +98,20 @@ export default function CreatorPage() {
         </div>
 
         <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium">Ton idée</span>
+          <span className="text-sm font-medium">Ton idée ou ton inspiration</span>
           <textarea
             value={idea}
             onChange={(e) => setIdea(e.target.value)}
             maxLength={CREATION_LIMITS.idea}
-            rows={4}
+            rows={7}
             disabled={busy}
             placeholder={mode === 'story' ? 'Une phrase suffit : un lieu, une situation, un enjeu…' : 'Qui est ce personnage ? Son caractère, son métier, son secret…'}
             className="rounded-xl border border-line bg-surface p-3 text-base leading-relaxed outline-none focus:border-accent"
           />
-          <span className="text-xs text-muted">Plus tu donnes de détails (ton, époque, personnages), plus le résultat te ressemblera.</span>
+          <span className="flex justify-between gap-3 text-xs text-muted">
+            <span>Une phrase suffit. Tu peux aussi décrire en détail, avec tes mots, une histoire qui t'a plu : personnages, lieux, intrigue, ton.</span>
+            <span className="shrink-0 tabular-nums">{idea.length}/{CREATION_LIMITS.idea}</span>
+          </span>
         </label>
 
         <div>

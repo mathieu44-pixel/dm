@@ -62,7 +62,7 @@ export interface StoryDraft {
   endings: DraftEnding[]
 }
 
-export const CREATION_LIMITS = { idea: 600, characters: 5, stats: 4, endings: 5 } as const
+export const CREATION_LIMITS = { idea: 4000, characters: 5, stats: 4, endings: 5 } as const
 
 const COMPARATORS: Comparator[] = ['>=', '<=', '>', '<', '==']
 const RARITY_IDS: Rarity[] = ['N', 'R', 'SR', 'SSR']
@@ -122,9 +122,9 @@ export function buildCreationRequest(model: string, options: CreationOptions): L
       {
         role: 'user',
         content: [
-          `Idée de départ : ${options.idea.trim().slice(0, CREATION_LIMITS.idea)}`,
+          `Idée ou inspiration du joueur :\n${options.idea.trim().slice(0, CREATION_LIMITS.idea)}`,
           '',
-          `Conçois ${isCharacter ? 'un personnage pour une conversation libre' : 'une histoire interactive'} à partir de cette idée. Réponds avec ce JSON :`,
+          `Conçois ${isCharacter ? 'un personnage pour une conversation libre' : 'une histoire interactive'} à partir de ce texte. S'il est détaillé (personnages, lieux, intrigue, ton), reprends fidèlement ce qu'il décrit et complète seulement ce qui manque. Réponds avec ce JSON :`,
           ...schema,
           '',
           'Règles :',
