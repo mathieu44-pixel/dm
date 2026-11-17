@@ -62,7 +62,9 @@ export default function ReadingPage() {
       <PageHeader title="Relecture" />
       <main className="mx-auto max-w-2xl px-5 pb-20 pt-8">
         <header className="mb-10 text-center">
-          <p className="text-[0.65rem] uppercase tracking-[0.3em] text-muted">{story.title}</p>
+          {session.title && session.title !== story.title && (
+            <p className="text-[0.65rem] uppercase tracking-[0.3em] text-muted">{story.title}</p>
+          )}
           <h1 className="mt-2 font-[family-name:var(--font-story)] text-3xl font-semibold text-accent">{session.title || story.title}</h1>
           <p className="mt-2 text-xs text-muted">
             {playerName} · {session.turn} tour{session.turn > 1 ? 's' : ''}
