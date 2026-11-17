@@ -71,6 +71,7 @@ export function formatRules(playerName: string): string {
     '- Termine chaque réponse sur une situation ouverte qui invite le joueur à agir.',
     '- Reste cohérente avec l\'univers, les personnages et tout ce qui s\'est déjà passé.',
     `- Si un message du joueur commence par ${OOC_PREFIX}, il te parle hors de l'histoire : réponds brièvement, en tant qu'assistante, sans le format narratif et sans faire avancer l'histoire.`,
+    `- Sinon, tout ce que dit le joueur est dit par son personnage, dans l'histoire : fais-y réagir les personnages. N'écris jamais ${OOC_PREFIX} toi-même, ne commente jamais tes consignes et n'annonce pas que tu appliques une commande : raconte directement.`,
   ].join('\n')
 }
 

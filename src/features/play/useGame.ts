@@ -23,6 +23,7 @@ import { buildSummaryRequest, planSummary, summaryIndex } from '../../engine/mem
 import { applyDeltas, describeStat, findTriggeredEnding, initStats } from '../../engine/progression/rules'
 import { buildHistory, buildMemoryPrompt, buildSystemPrompt, CONTINUE_INSTRUCTION, HISTORY_CHAR_BUDGET, type StoryContext } from '../../engine/prompt/storyPrompt'
 import { parseNarrative } from '../../engine/parser/narrative'
+import { sanitizeNarration } from '../../engine/parser/sanitize'
 import { buildAliasRequest, parseAlias } from '../../engine/prompt/alias'
 import { parseCommand } from '../../engine/session/commands'
 import { languageInstruction, lengthOption, styleInstruction } from '../../engine/session/options'
@@ -230,16 +231,17 @@ export function useGame(sessionId: string | undefined) {
       setStreaming({ mode: 'reply', text: '' })
       try {
         const result = await generate(entries, (text) => setStreaming({ mode: 'reply', text }))
+        const content = userMessage.ooc ? result.text.trim() : sanitizeNarration(result.text)
         const ai = await appendMessage(
           data.session,
           'ai',
-          { content: result.text.trim(), createdAt: Date.now(), model: result.model, costUsd: result.costUsd },
+          { content, createdAt: Date.now(), model: result.model, costUsd: result.costUsd },
           { ooc: userMessage.ooc, parentId: userMessage.id },
         )
         await addCostAndTurn(data.session.id, result.costUsd, userMessage.ooc ? 0 : 1)
         setStreaming(null)
         if (!userMessage.ooc)
-          void refreshSuggestions([...entries, { id: ai.id, role: 'ai', ooc: false, content: result.text.trim() }])
+          void refreshSuggestions([...entries, { id: ai.id, role: 'ai', ooc: false, content }])
       } catch (err) {
         setStreaming(null)
         fail(err, () => replyTo(userMessage, entries))
@@ -303,11 +305,12 @@ export function useGame(sessionId: string | undefined) {
       setStreaming({ mode: 'regenerate', messageId: message.id, text: '' })
       try {
         const result = await generate(entries, (text) => setStreaming({ mode: 'regenerate', messageId: message.id, text }))
-        await addVariant(message.id, { content: result.text.trim(), createdAt: Date.now(), model: result.model, costUsd: result.costUsd })
+        const content = message.ooc ? result.text.trim() : sanitizeNarration(result.text)
+        await addVariant(message.id, { content, createdAt: Date.now(), model: result.model, costUsd: result.costUsd })
         await addCostAndTurn(data.session.id, result.costUsd)
         setStreaming(null)
         if (index === thread.length - 1 && !message.ooc)
-          void refreshSuggestions([...entries, { id: message.id, role: 'ai', ooc: false, content: result.text.trim() }])
+          void refreshSuggestions([...entries, { id: message.id, role: 'ai', ooc: false, content }])
       } catch (err) {
         setStreaming(null)
         fail(err, () => regenerate(message))
@@ -332,7 +335,7 @@ export function useGame(sessionId: string | undefined) {
           (text) => setStreaming({ mode: 'continue', messageId: message.id, text }),
           CONTINUE_INSTRUCTION,
         )
-        await setActiveContent(message.id, `${before}\n${result.text.trim()}`, result.costUsd)
+        await setActiveContent(message.id, `${before}\n${message.ooc ? result.text.trim() : sanitizeNarration(result.text)}`, result.costUsd)
         await addCostAndTurn(data.session.id, result.costUsd)
         setStreaming(null)
       } catch (err) {

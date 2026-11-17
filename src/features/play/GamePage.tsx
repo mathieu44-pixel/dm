@@ -436,7 +436,7 @@ function UserBubble({
   return (
     <div className="flex flex-col items-end">
       <div className="max-w-[90%] rounded-2xl rounded-br-md border border-line bg-surface-2 px-4 py-3 text-[0.95rem] leading-relaxed">
-        {message.ooc && <span className="mb-1 block font-mono text-xs text-accent">/OOC</span>}
+        {message.ooc && !content.startsWith('/') && <span className="mb-1 block font-mono text-xs text-accent">/OOC</span>}
         <FormattedPlayerText text={content} />
       </div>
       {canEdit && (
