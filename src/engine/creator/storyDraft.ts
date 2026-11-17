@@ -108,7 +108,7 @@ export function buildCreationRequest(model: string, options: CreationOptions): L
           `- endings : 3 à ${CREATION_LIMITS.endings} fins variées (bonne, tragique, secrète…). Rareté : N pour les fins courantes, R, SR, puis SSR pour la fin la plus difficile à obtenir. Chaque fin exige un tour minimum (minTurn, entre 10 et 40) et des conditions sur les jauges (toutes doivent être vraies). Les fins doivent pouvoir s'exclure les unes les autres.`,
         ]
       : []),
-    '- Contenu original : ne reprends ni personnages, ni univers protégés par le droit d\'auteur.',
+    "- Œuvres existantes : si l'idée cite un univers, une œuvre ou des personnages existants (fan-fiction), respecte-les fidèlement (noms, lieux, caractères, règles du monde). Sinon, crée un contenu entièrement original sans emprunter d'éléments à des œuvres existantes.",
   ]
 
   return {
