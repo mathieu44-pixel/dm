@@ -42,6 +42,8 @@ export interface EndingDef {
   /** Épilogue révélé quand on retourne la carte. */
   epilogue: string
   condition: Condition
+  /** Illustration de la carte (image de la banque, v0.5). */
+  imageId?: string
 }
 
 export interface ReachedEnding {

@@ -1,6 +1,7 @@
 import type { LlmRequest } from '../llm/types'
 import { describeStat, type StatValues } from '../progression/rules'
 import type { StatDef } from '../progression/types'
+import type { ImageAsset } from '../images/types'
 import { parseSuggestions } from '../prompt/suggestions'
 import type { ThreadEntry } from '../session/types'
 import { MEMORY_LIMITS, type MemoryEntry, type MemoryKind } from './types'
@@ -18,7 +19,12 @@ export interface TurnAnalysis {
   add: { kind: MemoryKind; text: string }[]
   removeIds: string[]
   statDeltas: { statId: string; delta: number }[]
+  /** Image de scène choisie pour illustrer le dernier passage (v0.5). */
+  imageId?: string
 }
+
+/** Image proposée à l'IA : seules ses métadonnées sont envoyées (jamais l'image elle-même). */
+export type SceneImageInput = Pick<ImageAsset, 'id' | 'tags' | 'description'>
 
 export interface StatsInput {
   defs: StatDef[]
@@ -36,6 +42,7 @@ export function buildTurnAnalysisRequest(
   entries: ThreadEntry[],
   autoMemories: MemoryEntry[],
   stats?: StatsInput,
+  sceneImages: SceneImageInput[] = [],
 ): LlmRequest {
   const transcript = entries
     .filter((e) => !e.ooc)
@@ -54,6 +61,14 @@ export function buildTurnAnalysisRequest(
           .join('\n')
       : ''
 
+  const imageList = sceneImages
+    .map((img, i) => `i${i + 1} — ${[img.tags.join(', '), img.description].filter(Boolean).join(' : ') || 'sans description'}`)
+    .join('\n')
+  const extraFields = [
+    ...(statList ? ['  "stats": [{ "id": "s1", "delta": 5 }]'] : []),
+    ...(imageList ? ['  "image": "i2"'] : []),
+  ]
+
   return {
     model,
     maxTokens: 1500,
@@ -68,14 +83,15 @@ export function buildTurnAnalysisRequest(
           `Mémoire actuelle de la partie :\n${memoryList || '(vide)'}`,
           '',
           ...(statList ? [`Jauges de la partie :\n${statList}`, ''] : []),
+          ...(imageList ? [`Images de scène disponibles :\n${imageList}`, ''] : []),
           `Fin de l'histoire en cours :\n\n${transcript}`,
           '',
           'Réponds avec ce JSON :',
           '{',
           `  "suggestions": ["…", "…", "…"],`,
           '  "add": [{ "type": "fact" | "relation" | "goal", "text": "…" }],',
-          '  "remove": ["m2"]' + (statList ? ',' : ''),
-          ...(statList ? ['  "stats": [{ "id": "s1", "delta": 5 }]'] : []),
+          '  "remove": ["m2"]' + (extraFields.length ? ',' : ''),
+          ...extraFields.map((f, i) => (i < extraFields.length - 1 ? `${f},` : f)),
           '}',
           '',
           `- suggestions : 3 actions courtes et variées que ${playerName} pourrait faire maintenant, à la première personne (une prudente, une audacieuse, une qui fait parler un personnage), 15 mots maximum chacune.`,
@@ -86,6 +102,9 @@ export function buildTurnAnalysisRequest(
           '- remove : alias des éléments de mémoire devenus faux, obsolètes ou des objectifs accomplis.',
           ...(statList
             ? ['- stats : variations des jauges dues aux derniers échanges, selon leurs règles (entier positif ou négatif, petites variations ; omets les jauges inchangées).']
+            : []),
+          ...(imageList
+            ? ["- image : l'alias de l'image qui illustre le mieux la DERNIÈRE réponse de la narratrice (lieu, personnage présent, moment), ou null si aucune ne correspond vraiment."]
             : []),
         ].join('\n'),
       },
@@ -105,8 +124,13 @@ function extractJsonObject(text: string): unknown {
 }
 
 /** Lecture tolérante de la réponse. En cas de JSON illisible : suggestions seules, mémoire inchangée. */
-export function parseTurnAnalysis(text: string, autoMemories: MemoryEntry[], statDefs: StatDef[] = []): TurnAnalysis {
-  const data = extractJsonObject(text) as { suggestions?: unknown; add?: unknown; remove?: unknown; stats?: unknown } | null
+export function parseTurnAnalysis(
+  text: string,
+  autoMemories: MemoryEntry[],
+  statDefs: StatDef[] = [],
+  sceneImages: SceneImageInput[] = [],
+): TurnAnalysis {
+  const data = extractJsonObject(text) as { suggestions?: unknown; add?: unknown; remove?: unknown; stats?: unknown; image?: unknown } | null
   if (!data || typeof data !== 'object') return { suggestions: parseSuggestions(text), add: [], removeIds: [], statDeltas: [] }
 
   const suggestions = Array.isArray(data.suggestions) ? parseSuggestions(JSON.stringify(data.suggestions)) : []
@@ -143,7 +167,10 @@ export function parseTurnAnalysis(text: string, autoMemories: MemoryEntry[], sta
     }
   }
 
-  return { suggestions, add, removeIds, statDeltas }
+  const imageMatch = typeof data.image === 'string' ? /^i(\d+)$/.exec(data.image.trim()) : null
+  const imageId = imageMatch ? sceneImages[Number(imageMatch[1]) - 1]?.id : undefined
+
+  return { suggestions, add, removeIds, statDeltas, ...(imageId ? { imageId } : {}) }
 }
 
 /** Retire les ajouts déjà connus (même texte, sans tenir compte de la casse ni de la ponctuation finale). */

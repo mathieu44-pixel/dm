@@ -41,10 +41,11 @@ export async function saveStory(story: Story, characters: Character[]): Promise<
 }
 
 export async function deleteStory(id: string): Promise<void> {
-  await db.transaction('rw', db.stories, db.characters, db.meta, async () => {
+  await db.transaction('rw', db.stories, db.characters, db.meta, db.images, async () => {
     const story = await db.stories.get(id)
     if (!story) return
     await db.characters.bulkDelete(story.characterIds)
+    await db.images.where('storyId').equals(id).delete()
     await db.stories.delete(id)
     // Supprimer l'exemple volontairement : on ne le réinstalle pas automatiquement.
     if (story.isExample) await db.meta.put({ key: 'exampleInstalled', value: true })

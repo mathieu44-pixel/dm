@@ -1,3 +1,5 @@
+import { StoredImage } from './StoredImage'
+
 /**
  * Couverture générée (en attendant les images en v0.5) : dégradé déterministe
  * calculé à partir du titre, pour que chaque histoire ait sa propre couleur.
@@ -8,7 +10,8 @@ function hash(text: string): number {
   return h
 }
 
-export function StoryCover({ title, className = '' }: { title: string; className?: string }) {
+export function StoryCover({ title, imageId, className = '' }: { title: string; imageId?: string; className?: string }) {
+  if (imageId) return <StoredImage id={imageId} alt={title} className={className} />
   const h = hash(title || '?')
   const hue1 = h % 360
   const hue2 = (hue1 + 40 + (h % 80)) % 360

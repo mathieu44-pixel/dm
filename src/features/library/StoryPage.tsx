@@ -43,7 +43,7 @@ export default function StoryPage() {
       <PageHeader title="Informations" />
       <main className="pb-32">
         <div className="px-5 pt-6">
-          <StoryCover title={story.title} className="mx-auto aspect-[3/4] w-48 rounded-2xl shadow-2xl" />
+          <StoryCover title={story.title} imageId={story.coverImageId} className="mx-auto aspect-[3/4] w-48 rounded-2xl shadow-2xl" />
           <h2 className="mt-6 text-2xl font-semibold">{story.title}</h2>
           {story.subtitle && <p className="mt-2 text-sm leading-relaxed text-muted">{story.subtitle}</p>}
           {story.tags.length > 0 && (

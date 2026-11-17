@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
+import type { ImageAsset } from '../engine/images/types'
 import type { MemoryEntry } from '../engine/memory/types'
 import type { Message, Session } from '../engine/session/types'
 import type { AppSettings, Avatar, Character, MetaEntry, Story } from './types'
@@ -16,6 +17,7 @@ export class DmDatabase extends Dexie {
   sessions!: EntityTable<Session, 'id'>
   messages!: EntityTable<Message, 'id'>
   memories!: EntityTable<MemoryEntry, 'id'>
+  images!: EntityTable<ImageAsset, 'id'>
 
   constructor(name = 'dm') {
     super(name)
@@ -50,6 +52,18 @@ export class DmDatabase extends Dexie {
       sessions: 'id, storyId, lastPlayedAt',
       messages: 'id, sessionId',
       memories: 'id, sessionId',
+    })
+    // v0.5 : banque d'images des histoires.
+    this.version(5).stores({
+      settings: 'id',
+      stories: 'id, updatedAt, lastPlayedAt',
+      characters: 'id',
+      avatars: 'id, updatedAt',
+      meta: 'key',
+      sessions: 'id, storyId, lastPlayedAt',
+      messages: 'id, sessionId',
+      memories: 'id, sessionId',
+      images: 'id, storyId',
     })
   }
 }

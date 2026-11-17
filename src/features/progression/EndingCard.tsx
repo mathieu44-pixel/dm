@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { RARITIES, type EndingDef } from '../../engine/progression/types'
 import { Button } from '../../ui/Button'
+import { StoredImage } from '../../ui/StoredImage'
 
 /** Carte de fin : la carte s'affiche, on la retourne pour lire l'épilogue, ou on continue l'histoire. */
 export function EndingCard({ ending, onContinue }: { ending: EndingDef; onContinue: () => void }) {
@@ -24,6 +25,7 @@ export function EndingCard({ ending, onContinue }: { ending: EndingDef; onContin
           </span>
           {!flipped ? (
             <div className="flex min-h-64 flex-col items-center justify-center text-center">
+              {ending.imageId && <StoredImage id={ending.imageId} className="-mx-6 -mt-6 mb-5 aspect-[4/3] w-[calc(100%+3rem)]" alt="" />}
               <p className="text-xs uppercase tracking-widest" style={{ color: rarity.color }}>
                 {rarity.label}
               </p>

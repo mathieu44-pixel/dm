@@ -47,7 +47,7 @@ export default function HomePage() {
           {stories?.map((story) => (
             <li key={story.id}>
               <Link to={`/histoire/${story.id}`} className="block overflow-hidden rounded-2xl border border-line bg-surface">
-                <StoryCover title={story.title} className="aspect-[3/4]" />
+                <StoryCover title={story.title} imageId={story.coverImageId} className="aspect-[3/4]" />
                 <div className="p-3">
                   <p className="line-clamp-2 text-sm font-medium leading-snug">{story.title || 'Sans titre'}</p>
                   {story.tags.length > 0 && <p className="mt-1 truncate text-xs text-muted">{story.tags.join(' · ')}</p>}

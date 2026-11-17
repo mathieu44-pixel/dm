@@ -4,6 +4,7 @@ import { describeCondition } from '../../engine/progression/rules'
 import { PROGRESSION_LIMITS, RARITIES, type Comparator, type Condition, type ConditionItem, type EndingDef, type StatDef } from '../../engine/progression/types'
 import { Button } from '../../ui/Button'
 import { TextArea, TextField } from '../../ui/Field'
+import { ImagePicker } from './ImagesEditor'
 
 const inputClass = 'min-h-11 w-full rounded-xl border border-line bg-surface-2 px-3 text-sm outline-none focus:border-accent'
 const COMPARATORS: { id: Comparator; label: string }[] = [
@@ -15,7 +16,15 @@ const COMPARATORS: { id: Comparator; label: string }[] = [
 ]
 
 /** Éditeur des jauges et des fins d'un point de départ. */
-export function ProgressionEditor({ start, onChange }: { start: StartSetting; onChange: (patch: Partial<StartSetting>) => void }) {
+export function ProgressionEditor({
+  start,
+  storyId,
+  onChange,
+}: {
+  start: StartSetting
+  storyId: string
+  onChange: (patch: Partial<StartSetting>) => void
+}) {
   const stats = start.stats ?? []
   const endings = start.endings ?? []
 
@@ -131,6 +140,7 @@ export function ProgressionEditor({ start, onChange }: { start: StartSetting; on
               </label>
               <ConditionEditor condition={e.condition} stats={stats} onChange={(condition) => patchEnding(i, { condition })} />
               <TextArea label="Texte de la carte" value={e.cardText} onChange={(v) => patchEnding(i, { cardText: v })} rows={2} />
+              <ImagePicker storyId={storyId} label="Illustration" prefer="ending" value={e.imageId} onChange={(id) => patchEnding(i, { imageId: id })} />
               <TextArea label="Épilogue" value={e.epilogue} onChange={(v) => patchEnding(i, { epilogue: v })} rows={6} hint="Révélé quand le joueur retourne la carte." />
               <div className="flex flex-wrap gap-2">
                 {i > 0 && (

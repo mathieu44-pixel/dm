@@ -44,6 +44,8 @@ export interface Character {
   /** Façon de parler, tics de langage. */
   speech: string
   background: string
+  /** Portrait (image de la banque de l'histoire, v0.5). */
+  portraitImageId?: string
   createdAt: number
   updatedAt: number
 }
@@ -78,6 +80,8 @@ export interface Story {
   writingRules: string
   characterIds: string[]
   startSettings: StartSetting[]
+  /** Image de couverture (v0.5). */
+  coverImageId?: string
   /** Histoire d'exemple fournie avec l'application. */
   isExample?: boolean
   createdAt: number

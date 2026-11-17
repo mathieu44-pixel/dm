@@ -103,3 +103,23 @@ describe('jauges dans l\'analyse de fin de tour', () => {
     ])
   })
 })
+
+describe("images de scène dans l'analyse de fin de tour", () => {
+  const images = [
+    { id: 'img-a', tags: ['salle commune', 'nuit'], description: 'La salle commune éclairée par le feu' },
+    { id: 'img-b', tags: ['Isolde'], description: '' },
+  ]
+
+  it('présente le catalogue avec des alias', () => {
+    const text = buildTurnAnalysisRequest('m', 'A', [], [], undefined, images).messages[0].content
+    expect(text).toContain('i1 — salle commune, nuit : La salle commune éclairée par le feu')
+    expect(text).toContain('i2 — Isolde')
+    expect(text).toContain('"image": "i2"')
+  })
+
+  it("convertit l'alias choisi en identifiant ; null ou inconnu = pas d'image", () => {
+    expect(parseTurnAnalysis('{"image":"i2"}', [], [], images).imageId).toBe('img-b')
+    expect(parseTurnAnalysis('{"image":null}', [], [], images).imageId).toBeUndefined()
+    expect(parseTurnAnalysis('{"image":"i7"}', [], [], images).imageId).toBeUndefined()
+  })
+})

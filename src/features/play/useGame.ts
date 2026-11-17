@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
+import { loadSceneImages } from '../../data/images'
 import { applyMemoryChanges, loadMemories, useGlobalNotes, useMemories } from '../../data/memories'
 import {
   addCostAndTurn,
@@ -10,6 +11,7 @@ import {
   patchSession,
   selectVariant,
   setActiveContent,
+  setSceneImage,
   useSessionData,
 } from '../../data/sessions'
 import { useSettings } from '../../data/settings'
@@ -148,10 +150,21 @@ export function useGame(sessionId: string | undefined) {
         const auto = (await loadMemories(sessionId)).filter((m) => m.kind !== 'long')
         const before = await loadSession(sessionId)
         const values = initStats(statDefs, before?.stats)
+        const sceneImages = await loadSceneImages(data.story.id)
         const result = await provider.complete(
-          buildTurnAnalysisRequest(active.utilityModel, playerName, entries, auto, statDefs.length ? { defs: statDefs, values } : undefined),
+          buildTurnAnalysisRequest(
+            active.utilityModel,
+            playerName,
+            entries,
+            auto,
+            statDefs.length ? { defs: statDefs, values } : undefined,
+            sceneImages,
+          ),
         )
-        const analysis = parseTurnAnalysis(result.text, auto, statDefs)
+        const analysis = parseTurnAnalysis(result.text, auto, statDefs, sceneImages)
+        const last = entries[entries.length - 1]
+        if (analysis.imageId && last?.role === 'ai')
+          await setSceneImage(sessionId, entries.map((e) => e.id), last.id, analysis.imageId)
         const nextStats = applyDeltas(statDefs, values, analysis.statDeltas)
         await patchSession(sessionId, { suggestions: analysis.suggestions, stats: nextStats })
         await applyMemoryChanges(sessionId, analysis)

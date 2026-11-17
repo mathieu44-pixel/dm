@@ -7,6 +7,7 @@ import { Button } from '../../ui/Button'
 import { TextArea, TextField } from '../../ui/Field'
 import { NarrativeView } from '../../ui/NarrativeView'
 import { PageHeader } from '../../ui/PageHeader'
+import { ImagePicker, ImagesEditor } from './ImagesEditor'
 import { ProgressionEditor } from './ProgressionEditor'
 
 const NEW_ID = 'nouvelle'
@@ -102,6 +103,10 @@ export default function StoryEditorPage() {
           <TextField label="Tags" value={tagsText} onChange={setTagsText} placeholder="Fantasy, Mystère, Romance…" hint="Séparés par des virgules." />
         </Section>
 
+        <Section title="Images">
+          <ImagesEditor storyId={story.id} coverImageId={story.coverImageId} onSetCover={(id) => patch({ coverImageId: id })} />
+        </Section>
+
         <Section title="Univers">
           <TextArea
             label="Monde, lieux, règles"
@@ -142,6 +147,7 @@ export default function StoryEditorPage() {
               <div className="space-y-4 border-t border-line p-4">
                 <TextField label="Nom" value={c.name} onChange={(v) => patchCharacter(i, { name: v })} />
                 <TextField label="Rôle" value={c.title} onChange={(v) => patchCharacter(i, { title: v })} placeholder="Aubergiste, capitaine…" />
+                <ImagePicker storyId={story.id} label="Portrait" prefer="character" value={c.portraitImageId} onChange={(id) => patchCharacter(i, { portraitImageId: id })} />
                 <TextArea label="Apparence" value={c.appearance} onChange={(v) => patchCharacter(i, { appearance: v })} rows={2} />
                 <TextArea label="Personnalité" value={c.personality} onChange={(v) => patchCharacter(i, { personality: v })} rows={2} />
                 <TextArea label="Façon de parler" value={c.speech} onChange={(v) => patchCharacter(i, { speech: v })} rows={2} />
@@ -197,7 +203,7 @@ export default function StoryEditorPage() {
         </Section>
 
         <Section title="Jauges et fins">
-          <ProgressionEditor start={start} onChange={patchStart} />
+          <ProgressionEditor start={start} storyId={story.id} onChange={patchStart} />
         </Section>
       </main>
 

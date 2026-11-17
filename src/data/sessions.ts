@@ -188,3 +188,25 @@ export async function deleteSession(sessionId: string): Promise<void> {
     await db.sessions.delete(sessionId)
   })
 }
+
+/**
+ * Associe une image de scène au passage `messageId` (variante affichée) et la débloque dans la galerie.
+ * Si le passage précédent montrait déjà la même image, on ne la répète pas (mais elle reste débloquée).
+ */
+export async function setSceneImage(sessionId: string, threadIds: string[], messageId: string, imageId: string): Promise<void> {
+  await db.transaction('rw', db.messages, db.sessions, async () => {
+    const session = await db.sessions.get(sessionId)
+    if (session && !(session.unlockedImageIds ?? []).includes(imageId))
+      await db.sessions.update(sessionId, { unlockedImageIds: [...(session.unlockedImageIds ?? []), imageId] })
+
+    const index = threadIds.indexOf(messageId)
+    const previous = (await db.messages.bulkGet(threadIds.slice(0, Math.max(0, index)))).filter((m): m is Message => !!m)
+    const lastShown = [...previous].reverse().map((m) => m.variants[m.activeVariant]?.imageId).find(Boolean)
+    if (lastShown === imageId) return
+
+    const message = await db.messages.get(messageId)
+    if (!message) return
+    const variants = message.variants.map((v, i) => (i === message.activeVariant ? { ...v, imageId } : v))
+    await db.messages.update(messageId, { variants })
+  })
+}

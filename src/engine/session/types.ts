@@ -8,6 +8,8 @@ export interface MessageVariant {
   /** Modèle qui a écrit cette variante (messages de l'IA). */
   model?: string
   costUsd?: number
+  /** Image de scène affichée au-dessus de ce passage (v0.5). */
+  imageId?: string
 }
 
 export interface Message {
@@ -55,6 +57,10 @@ export interface Session {
   endingsReached?: ReachedEnding[]
   /** Fin qui vient d'être atteinte, en attente d'affichage. */
   pendingEndingId?: string
+  /** Images de scène débloquées (galerie, v0.5). */
+  unlockedImageIds?: string[]
+  /** Afficher les images de scène (par défaut : oui). */
+  showImages?: boolean
   createdAt: number
   lastPlayedAt: number
 }

@@ -7,7 +7,7 @@ describe('parseBackup', () => {
     const backup = parseBackup(JSON.stringify({ format: BACKUP_FORMAT, version: 1, stories: [EXAMPLE_STORY], characters: EXAMPLE_CHARACTERS }))
     expect(backup.stories).toHaveLength(1)
     expect(backup.sessions).toEqual([])
-    expect(summarizeBackup(backup)).toBe('1 histoire(s), 0 avatar(s), 0 partie(s)')
+    expect(summarizeBackup(backup)).toBe('1 histoire(s), 0 avatar(s), 0 partie(s), 0 image(s)')
   })
 
   it('refuse un fichier non JSON ou étranger', () => {

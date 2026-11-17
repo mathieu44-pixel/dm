@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { setTextSize, stepTextSize, TEXT_SIZES, useTextSize } from '../../data/preferences'
-import { deleteSession } from '../../data/sessions'
+import { deleteSession, patchSession } from '../../data/sessions'
 import { useSettings } from '../../data/settings'
 import { activeProvider } from '../../data/settingsModel'
 import { formatUsd } from '../../engine/llm/models'
@@ -9,6 +9,7 @@ import { activeContent, type Message } from '../../engine/session/types'
 import { Button } from '../../ui/Button'
 import { IconContinue, IconEdit, IconNext, IconPrev, IconRegenerate, IconTrash } from '../../ui/icons'
 import { NarrativeView } from '../../ui/NarrativeView'
+import { StoredImage } from '../../ui/StoredImage'
 import { EndingCard } from '../progression/EndingCard'
 import { StatsBar } from '../progression/StatsBar'
 import { useGame } from './useGame'
@@ -26,6 +27,7 @@ export default function GamePage() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [commandsOpen, setCommandsOpen] = useState(false)
   const [editing, setEditing] = useState<{ message: Message; text: string } | null>(null)
+  const [viewing, setViewing] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -44,6 +46,10 @@ export default function GamePage() {
     )
 
   const { session } = data
+  const showImages = session.showImages !== false
+  const portraits = Object.fromEntries(
+    data.characters.filter((c) => c.portraitImageId).map((c) => [c.name, c.portraitImageId as string]),
+  )
   const lastMessage = thread[thread.length - 1]
   const lastIsUser = lastMessage?.role === 'user'
 
@@ -133,9 +139,15 @@ export default function GamePage() {
                 ? `${content}\n${streamingHere.text}`
                 : content
 
+          const sceneImage = showImages && !streamingHere ? message.variants[message.activeVariant]?.imageId : undefined
           return (
             <article key={message.id}>
-              {message.ooc ? <OocText text={shown} /> : <NarrativeView text={shown || '「…」'} />}
+              {sceneImage && (
+                <button type="button" onClick={() => setViewing(sceneImage)} className="-mx-5 mb-5 block w-[calc(100%+2.5rem)]" aria-label="Agrandir l'image">
+                  <StoredImage id={sceneImage} className="aspect-[16/10] w-full" />
+                </button>
+              )}
+              {message.ooc ? <OocText text={shown} /> : <NarrativeView text={shown || '「…」'} portraits={portraits} />}
               {!busy && (
                 <AiActions
                   message={message}
@@ -155,7 +167,11 @@ export default function GamePage() {
 
         {streaming?.mode === 'reply' && (
           <article aria-live="polite">
-            {lastMessage?.ooc ? <OocText text={streaming.text || '…'} /> : <NarrativeView text={streaming.text || '「…」'} />}
+            {lastMessage?.ooc ? (
+              <OocText text={streaming.text || '…'} />
+            ) : (
+              <NarrativeView text={streaming.text || '「…」'} portraits={portraits} />
+            )}
           </article>
         )}
 
@@ -192,7 +208,7 @@ export default function GamePage() {
                   }}
                   className="px-3 text-muted"
                 >
-                  ✎
+                  <IconEdit />
                 </button>
                 <p className="flex-1 py-3 font-[family-name:var(--font-story)] text-sm leading-relaxed text-text/80">{s}</p>
                 <button
@@ -298,6 +314,28 @@ export default function GamePage() {
               </button>
             </span>
           </div>
+          <div className="flex items-center justify-between rounded-xl bg-surface-2 px-4 py-3 text-sm">
+            <span className="text-muted">Images de scène</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showImages}
+              onClick={() => patchSession(session.id, { showImages: !showImages })}
+              className={'relative h-7 w-12 rounded-full transition ' + (showImages ? 'bg-accent' : 'bg-line')}
+            >
+              <span className={'absolute top-1 h-5 w-5 rounded-full bg-ink transition-all ' + (showImages ? 'left-6' : 'left-1')} />
+            </button>
+          </div>
+          <Link
+            to={`/partie/${session.id}/galerie`}
+            className="flex items-center justify-between rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm"
+          >
+            <span>
+              Galerie
+              <span className="block text-xs text-muted">{session.unlockedImageIds?.length ?? 0} image(s) débloquée(s)</span>
+            </span>
+            <span className="text-muted">›</span>
+          </Link>
           <Link
             to={`/partie/${session.id}/memoire`}
             className="flex items-center justify-between rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm"
@@ -319,6 +357,8 @@ export default function GamePage() {
           </Button>
         </Sheet>
       )}
+
+      {viewing && <ImageViewer id={viewing} onClose={() => setViewing(null)} />}
 
       {/* Modification d'un message */}
       {editing && (
@@ -516,6 +556,18 @@ function Row({ label, value }: { label: string; value: string }) {
     <div className="flex justify-between gap-4">
       <dt className="text-muted">{label}</dt>
       <dd>{value}</dd>
+    </div>
+  )
+}
+
+/** Image en plein écran. */
+export function ImageViewer({ id, onClose }: { id: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/95" onClick={onClose} role="dialog" aria-label="Image">
+      <StoredImage id={id} className="max-h-full max-w-full object-contain" />
+      <button type="button" aria-label="Fermer" className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] h-11 w-11 rounded-full bg-black/60 text-xl text-white">
+        ✕
+      </button>
     </div>
   )
 }
