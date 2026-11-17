@@ -39,4 +39,8 @@ describe('describeLlmError (Gemini)', () => {
     const err = Object.assign(new Error('Resource exhausted'), { status: 429, provider: 'gemini' })
     expect(describeLlmError(err)).toMatch(/Quota gratuit de Gemini/)
   })
+  it('reconnaît un modèle hors offre gratuite (quota 0)', () => {
+    const err = Object.assign(new Error('Quota exceeded for metric: generate_content_free_tier_requests, limit: 0, model: gemini-4-argon'), { status: 429, provider: 'gemini' })
+    expect(describeLlmError(err)).toMatch(/pas inclus dans l'offre gratuite/)
+  })
 })

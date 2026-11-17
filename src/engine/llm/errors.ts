@@ -30,6 +30,8 @@ export function describeLlmError(error: unknown): string {
     case 413:
       return 'Requête trop volumineuse (413).'
     case 429:
+      if (provider === 'gemini' && /limit:\s*0\b/i.test(message))
+        return "Ce modèle n'est pas inclus dans l'offre gratuite de Gemini (quota 0). Choisis un modèle marqué « (gratuit) » dans Réglages → Modèles."
       return provider === 'gemini'
         ? 'Quota gratuit de Gemini atteint (429). Patiente une minute, ou jusqu\'à demain pour la limite journalière.'
         : 'Trop de requêtes ou limite de dépense atteinte (429). Patiente un peu ou vérifie ton crédit.'

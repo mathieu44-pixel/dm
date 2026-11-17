@@ -101,26 +101,47 @@ interface GeminiModel {
   supportedGenerationMethods?: string[]
 }
 
-const EXCLUDED = /(embedding|tts|image|imagen|veo|live|audio|aqa|robotics|computer-use|native)/i
+const EXCLUDED = /(embedding|tts|image|imagen|veo|live|audio|aqa|robotics|computer-use|native|transcribe|translate|banana|omni)/i
+
+/**
+ * Modèles de texte indiqués « Free of charge » sur https://ai.google.dev/gemini-api/docs/pricing
+ * (relevé le 17/11/2026), du plus recommandé au moins recommandé. Cette liste peut évoluer :
+ * elle ne sert qu'à proposer de bons choix par défaut et à signaler les modèles gratuits.
+ */
+export const GEMINI_FREE_STORY_MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash']
+export const GEMINI_FREE_UTILITY_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']
+const FREE_MODELS = new Set([...GEMINI_FREE_STORY_MODELS, ...GEMINI_FREE_UTILITY_MODELS])
+
+export function isKnownFreeGeminiModel(id: string): boolean {
+  return FREE_MODELS.has(id)
+}
 
 /** Garde uniquement les modèles de texte Gemini capables de générer une réponse. */
 export function filterTextModels(models: GeminiModel[]): ModelOption[] {
   return models
     .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
     .map((m) => ({ ...m, id: m.name.replace(/^models\//, '') }))
-    .filter((m) => m.id.startsWith('gemini') && !EXCLUDED.test(m.id))
-    .map((m) => ({ id: m.id, label: m.displayName ?? m.id, hint: m.id }))
+    .filter((m) => /^gemini-\d/.test(m.id) && !EXCLUDED.test(m.id))
+    .map((m) => ({
+      id: m.id,
+      label: (m.displayName ?? m.id) + (isKnownFreeGeminiModel(m.id) ? ' (gratuit)' : ''),
+      hint: m.id,
+    }))
     .sort((a, b) => b.id.localeCompare(a.id, 'en', { numeric: true }))
 }
 
-/** Choisit des modèles par défaut : un « Flash » pour l'histoire, un « Flash-Lite » pour les tâches internes. */
+/**
+ * Choisit des modèles par défaut : d'abord les modèles gratuits connus,
+ * sinon un « Flash » pour l'histoire et un « Flash-Lite » pour les tâches internes.
+ */
 export function pickDefaultGeminiModels(options: ModelOption[]): { story?: string; utility?: string } {
   const ids = options.map((o) => o.id)
+  const firstAvailable = (candidates: string[]) => candidates.find((c) => ids.includes(c))
   const stable = (id: string) => !/(preview|exp)/i.test(id)
-  const byPreference = (pattern: RegExp) =>
-    ids.find((id) => pattern.test(id) && stable(id)) ?? ids.find((id) => pattern.test(id))
-  const story = byPreference(/flash(?!-lite)/i) ?? ids[0]
-  const utility = byPreference(/flash-lite/i) ?? story
+  const byPattern = (pattern: RegExp) => ids.find((id) => pattern.test(id) && stable(id)) ?? ids.find((id) => pattern.test(id))
+
+  const story = firstAvailable(GEMINI_FREE_STORY_MODELS) ?? byPattern(/flash(?!-lite)/i) ?? ids[0]
+  const utility = firstAvailable(GEMINI_FREE_UTILITY_MODELS) ?? byPattern(/flash-lite/i) ?? story
   return { story, utility }
 }
 

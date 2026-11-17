@@ -62,29 +62,39 @@ describe('parseSseBuffer', () => {
 })
 
 describe('filterTextModels / pickDefaultGeminiModels', () => {
+  const gen = ['generateContent']
   const raw = [
-    { name: 'models/gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', supportedGenerationMethods: ['generateContent'] },
-    { name: 'models/gemini-2.5-flash-lite', supportedGenerationMethods: ['generateContent'] },
-    { name: 'models/gemini-3-flash-preview', supportedGenerationMethods: ['generateContent'] },
+    { name: 'models/gemini-omni-1.1-flash', supportedGenerationMethods: gen },
+    { name: 'models/gemini-4-argon', supportedGenerationMethods: gen },
+    { name: 'models/gemini-3.8-flash', displayName: 'Gemini 3.8 Flash', supportedGenerationMethods: gen },
+    { name: 'models/gemini-3.6-flash', supportedGenerationMethods: gen },
+    { name: 'models/gemini-3.5-flash-lite', supportedGenerationMethods: gen },
+    { name: 'models/gemini-3.8-live', supportedGenerationMethods: gen },
+    { name: 'models/gemini-3.5-transcribe', supportedGenerationMethods: gen },
+    { name: 'models/gemini-3.8-flash-tts', supportedGenerationMethods: gen },
     { name: 'models/gemini-embedding-001', supportedGenerationMethods: ['embedContent'] },
-    { name: 'models/gemini-2.5-flash-preview-tts', supportedGenerationMethods: ['generateContent'] },
-    { name: 'models/gemma-3-27b-it', supportedGenerationMethods: ['generateContent'] },
+    { name: 'models/gemma-3-27b-it', supportedGenerationMethods: gen },
   ]
 
-  it('ne garde que les modèles de texte Gemini', () => {
-    const ids = filterTextModels(raw).map((m) => m.id)
-    expect(ids).toContain('gemini-2.5-flash')
-    expect(ids).toContain('gemini-3-flash-preview')
-    expect(ids).not.toContain('gemini-embedding-001')
-    expect(ids).not.toContain('gemini-2.5-flash-preview-tts')
-    expect(ids).not.toContain('gemma-3-27b-it')
+  it('ne garde que les modèles de texte Gemini et signale les gratuits', () => {
+    const models = filterTextModels(raw)
+    const ids = models.map((m) => m.id)
+    expect(ids).toEqual(expect.arrayContaining(['gemini-4-argon', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']))
+    for (const excluded of ['gemini-omni-1.1-flash', 'gemini-3.8-live', 'gemini-3.5-transcribe', 'gemini-3.8-flash-tts', 'gemini-embedding-001', 'gemma-3-27b-it'])
+      expect(ids).not.toContain(excluded)
+    expect(models.find((m) => m.id === 'gemini-3.8-flash')?.label).toBe('Gemini 3.8 Flash (gratuit)')
   })
 
-  it('préfère un Flash stable pour l\'histoire et un Flash-Lite pour les tâches internes', () => {
+  it('choisit en priorité les modèles gratuits connus', () => {
     expect(pickDefaultGeminiModels(filterTextModels(raw))).toEqual({
-      story: 'gemini-2.5-flash',
-      utility: 'gemini-2.5-flash-lite',
+      story: 'gemini-3.8-flash',
+      utility: 'gemini-3.5-flash-lite',
     })
+  })
+
+  it('retombe sur un Flash / Flash-Lite si aucun modèle gratuit connu n\'est listé', () => {
+    const options = ['gemini-9-flash', 'gemini-9-flash-lite', 'gemini-9-pro'].map((id) => ({ id, label: id }))
+    expect(pickDefaultGeminiModels(options)).toEqual({ story: 'gemini-9-flash', utility: 'gemini-9-flash-lite' })
   })
 
   it('gère une liste vide', () => {

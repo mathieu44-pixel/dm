@@ -12,7 +12,6 @@ export const PROVIDER_LABELS: Record<ProviderId, { name: string; hint: string; k
     name: 'Google Gemini',
     hint: 'Gratuit (offre Google AI Studio), idéal pour les tests',
     keyUrl: 'https://aistudio.google.com/apikey',
-    keyPrefix: 'AIza',
   },
   anthropic: {
     name: 'Anthropic Claude',

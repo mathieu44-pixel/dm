@@ -247,6 +247,19 @@ function ProviderPanel({
               </Button>
             )}
           </div>
+          {provider === 'gemini' && models && (
+            <Button
+              variant="secondary"
+              className="mt-3 w-full"
+              onClick={async () => {
+                const d = pickDefaultGeminiModels(models)
+                await updateProviderSettings(provider, { storyModel: d.story ?? '', utilityModel: d.utility ?? '' })
+                onSaved()
+              }}
+            >
+              Utiliser les modèles gratuits recommandés
+            </Button>
+          )}
           {modelsError && <p className="mt-2 rounded-xl bg-red-400/10 px-4 py-3 text-sm text-red-300">✗ {modelsError}</p>}
 
           <ModelPicker
