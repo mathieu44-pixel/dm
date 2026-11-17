@@ -45,7 +45,7 @@ export function parseAlias(text: string): { alias: string; reason: string } | nu
     const data = JSON.parse(text.slice(start, end + 1)) as { alias?: unknown; reason?: unknown }
     if (typeof data.alias !== 'string' || !data.alias.trim()) return null
     return {
-      alias: data.alias.trim().replace(/^["«“]|["»”]$/g, '').slice(0, 60),
+      alias: data.alias.trim().replace(/^["«“]|["»”]$/g, '').trim().slice(0, 60),
       reason: typeof data.reason === 'string' ? data.reason.trim() : '',
     }
   } catch {
