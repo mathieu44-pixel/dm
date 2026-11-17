@@ -1,14 +1,16 @@
 import { Link } from 'react-router'
 import { APP_VERSION, ROADMAP, isDelivered } from '../../app/version'
 import { useSettings } from '../../data/settings'
-import { MODELS } from '../../engine/llm/models'
+import { activeProvider, isReady } from '../../data/settingsModel'
+import { PROVIDER_LABELS } from '../../engine/llm/client'
 
 /**
  * Accueil provisoire. Deviendra la bibliothèque d'histoires (Story | Character) en v0.1b/v0.2.
  */
 export default function HomePage() {
   const settings = useSettings()
-  const hasKey = !!settings?.apiKey
+  const ready = settings ? isReady(settings) : false
+  const active = settings ? activeProvider(settings) : undefined
 
   return (
     <main className="flex min-h-full flex-col px-6 pb-10 pt-[max(2.5rem,env(safe-area-inset-top))]">
@@ -30,19 +32,19 @@ export default function HomePage() {
         「La table est dressée, les chandelles allumées. Il ne manque plus que l'histoire.」
       </p>
 
-      {settings && !hasKey && (
+      {settings && !ready && (
         <Link
           to="/reglages"
           className="mb-6 block rounded-2xl border border-accent/40 bg-accent-soft p-4 text-sm leading-relaxed"
         >
-          <span className="font-medium text-accent">Première étape :</span> ajoute ta clé API Anthropic dans les
-          Réglages pour pouvoir jouer. →
+          <span className="font-medium text-accent">Première étape :</span> choisis un fournisseur d'IA et ajoute ta
+          clé API dans les Réglages pour pouvoir jouer. →
         </Link>
       )}
 
-      {settings && hasKey && (
+      {ready && active && (
         <div className="mb-6 rounded-2xl border border-line bg-surface p-4 text-sm text-muted">
-          Clé API enregistrée · Rédaction : <span className="text-text">{MODELS[settings.storyModel].label}</span>
+          {PROVIDER_LABELS[active.provider].name} · Rédaction : <span className="text-text">{active.storyModel}</span>
         </div>
       )}
 

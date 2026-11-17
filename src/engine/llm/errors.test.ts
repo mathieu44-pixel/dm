@@ -28,3 +28,15 @@ describe('describeLlmError', () => {
     expect(describeLlmError('bizarre')).toBe('Erreur inattendue : bizarre')
   })
 })
+
+describe('describeLlmError (Gemini)', () => {
+  it('reconnaît une clé Gemini invalide malgré le code 400', () => {
+    const err = Object.assign(new Error('API key not valid. Please pass a valid API key.'), { status: 400, provider: 'gemini' })
+    expect(describeLlmError(err)).toMatch(/Clé API invalide/)
+  })
+
+  it('explique le quota gratuit de Gemini', () => {
+    const err = Object.assign(new Error('Resource exhausted'), { status: 429, provider: 'gemini' })
+    expect(describeLlmError(err)).toMatch(/Quota gratuit de Gemini/)
+  })
+})

@@ -1,0 +1,197 @@
+import { LlmError, type LlmProvider, type LlmRequest, type LlmResult, type LlmUsage, type ModelOption } from './types'
+
+/**
+ * Fournisseur Google Gemini (API « Generative Language », offre gratuite via Google AI Studio).
+ * Appels REST directs avec fetch : pas de dépendance supplémentaire.
+ * Doc : https://ai.google.dev/api
+ */
+
+const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
+
+/* ---------- Construction de la requête ---------- */
+
+export function buildGeminiBody(request: LlmRequest) {
+  return {
+    ...(request.system ? { systemInstruction: { parts: [{ text: request.system }] } } : {}),
+    contents: request.messages.map((m) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    })),
+    generationConfig: {
+      maxOutputTokens: request.maxTokens,
+      ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
+    },
+  }
+}
+
+/* ---------- Lecture des réponses ---------- */
+
+interface GeminiPart {
+  text?: string
+  thought?: boolean
+}
+interface GeminiResponse {
+  candidates?: Array<{ content?: { parts?: GeminiPart[] }; finishReason?: string }>
+  promptFeedback?: { blockReason?: string }
+  usageMetadata?: {
+    promptTokenCount?: number
+    candidatesTokenCount?: number
+    thoughtsTokenCount?: number
+    cachedContentTokenCount?: number
+  }
+}
+
+const BLOCKING_REASONS = new Set(['SAFETY', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII', 'RECITATION', 'OTHER'])
+
+/** Texte d'un morceau de réponse (on ignore les « pensées » internes du modèle). */
+export function extractText(chunk: GeminiResponse): string {
+  const parts = chunk.candidates?.[0]?.content?.parts ?? []
+  return parts
+    .filter((p) => !p.thought && typeof p.text === 'string')
+    .map((p) => p.text)
+    .join('')
+}
+
+/** Lève une erreur si Gemini a bloqué la demande ou la réponse. */
+export function assertNotBlocked(chunk: GeminiResponse): void {
+  const blockReason = chunk.promptFeedback?.blockReason
+  if (blockReason) throw new LlmError(`Demande refusée par le filtre de Gemini (${blockReason}).`, 'gemini', { kind: 'blocked' })
+  const finish = chunk.candidates?.[0]?.finishReason
+  if (finish && BLOCKING_REASONS.has(finish))
+    throw new LlmError(`Réponse interrompue par le filtre de Gemini (${finish}).`, 'gemini', { kind: 'blocked' })
+}
+
+export function toUsage(meta: GeminiResponse['usageMetadata']): LlmUsage {
+  const cached = meta?.cachedContentTokenCount ?? 0
+  return {
+    inputTokens: Math.max(0, (meta?.promptTokenCount ?? 0) - cached),
+    outputTokens: (meta?.candidatesTokenCount ?? 0) + (meta?.thoughtsTokenCount ?? 0),
+    cacheReadTokens: cached,
+    cacheWriteTokens: 0,
+  }
+}
+
+/**
+ * Découpe un flux SSE (« data: {...}\n\n ») en objets JSON.
+ * Renvoie les événements complets et le reste du tampon à conserver.
+ */
+export function parseSseBuffer(buffer: string): { events: GeminiResponse[]; rest: string } {
+  const normalized = buffer.replace(/\r\n/g, '\n')
+  const blocks = normalized.split('\n\n')
+  const rest = blocks.pop() ?? ''
+  const events: GeminiResponse[] = []
+  for (const block of blocks) {
+    const data = block
+      .split('\n')
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice(5).trimStart())
+      .join('\n')
+    if (!data || data === '[DONE]') continue
+    events.push(JSON.parse(data) as GeminiResponse)
+  }
+  return { events, rest }
+}
+
+/* ---------- Liste des modèles ---------- */
+
+interface GeminiModel {
+  name: string
+  displayName?: string
+  description?: string
+  supportedGenerationMethods?: string[]
+}
+
+const EXCLUDED = /(embedding|tts|image|imagen|veo|live|audio|aqa|robotics|computer-use|native)/i
+
+/** Garde uniquement les modèles de texte Gemini capables de générer une réponse. */
+export function filterTextModels(models: GeminiModel[]): ModelOption[] {
+  return models
+    .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
+    .map((m) => ({ ...m, id: m.name.replace(/^models\//, '') }))
+    .filter((m) => m.id.startsWith('gemini') && !EXCLUDED.test(m.id))
+    .map((m) => ({ id: m.id, label: m.displayName ?? m.id, hint: m.id }))
+    .sort((a, b) => b.id.localeCompare(a.id, 'en', { numeric: true }))
+}
+
+/** Choisit des modèles par défaut : un « Flash » pour l'histoire, un « Flash-Lite » pour les tâches internes. */
+export function pickDefaultGeminiModels(options: ModelOption[]): { story?: string; utility?: string } {
+  const ids = options.map((o) => o.id)
+  const stable = (id: string) => !/(preview|exp)/i.test(id)
+  const byPreference = (pattern: RegExp) =>
+    ids.find((id) => pattern.test(id) && stable(id)) ?? ids.find((id) => pattern.test(id))
+  const story = byPreference(/flash(?!-lite)/i) ?? ids[0]
+  const utility = byPreference(/flash-lite/i) ?? story
+  return { story, utility }
+}
+
+/* ---------- Appels réseau ---------- */
+
+async function throwHttpError(response: Response): Promise<never> {
+  let detail = ''
+  try {
+    const body = (await response.json()) as { error?: { message?: string; status?: string } }
+    detail = body.error?.message ?? body.error?.status ?? ''
+  } catch {
+    /* corps illisible : on garde le code HTTP */
+  }
+  throw new LlmError(detail || `HTTP ${response.status}`, 'gemini', { status: response.status })
+}
+
+export function createGeminiProvider(apiKey: string): LlmProvider {
+  const headers = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey }
+
+  async function complete(request: LlmRequest): Promise<LlmResult> {
+    const response = await fetch(`${BASE_URL}/models/${encodeURIComponent(request.model)}:generateContent`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(buildGeminiBody(request)),
+      signal: request.signal,
+    })
+    if (!response.ok) await throwHttpError(response)
+    const data = (await response.json()) as GeminiResponse
+    assertNotBlocked(data)
+    return { text: extractText(data), usage: toUsage(data.usageMetadata), costUsd: 0 }
+  }
+
+  async function stream(request: LlmRequest, onText: (delta: string) => void): Promise<LlmResult> {
+    const response = await fetch(
+      `${BASE_URL}/models/${encodeURIComponent(request.model)}:streamGenerateContent?alt=sse`,
+      { method: 'POST', headers, body: JSON.stringify(buildGeminiBody(request)), signal: request.signal },
+    )
+    if (!response.ok) await throwHttpError(response)
+    if (!response.body) throw new LlmError('Réponse vide de Gemini.', 'gemini', { kind: 'empty' })
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let text = ''
+    let lastUsage: GeminiResponse['usageMetadata']
+
+    for (;;) {
+      const { done, value } = await reader.read()
+      buffer += decoder.decode(value, { stream: !done })
+      const { events, rest } = parseSseBuffer(done ? buffer + '\n\n' : buffer)
+      buffer = rest
+      for (const event of events) {
+        assertNotBlocked(event)
+        const delta = extractText(event)
+        if (delta) {
+          text += delta
+          onText(delta)
+        }
+        if (event.usageMetadata) lastUsage = event.usageMetadata
+      }
+      if (done) break
+    }
+    return { text, usage: toUsage(lastUsage), costUsd: 0 }
+  }
+
+  async function listModels(): Promise<ModelOption[]> {
+    const response = await fetch(`${BASE_URL}/models?pageSize=1000`, { headers: { 'x-goog-api-key': apiKey } })
+    if (!response.ok) await throwHttpError(response)
+    const data = (await response.json()) as { models?: GeminiModel[] }
+    return filterTextModels(data.models ?? [])
+  }
+
+  return { id: 'gemini', complete, stream, listModels }
+}
