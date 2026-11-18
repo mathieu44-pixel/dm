@@ -12,6 +12,7 @@ import { createProvider } from '../../engine/llm/client'
 import { recordCost } from '../../data/costs'
 import { describeLlmError } from '../../engine/llm/errors'
 import { textLanguage } from '../../engine/import/universe'
+import { storyLanguage, translateStoryCopy } from '../../data/translateStory'
 import { buildStartTranslationRequest, parseStartTranslation } from '../../engine/prompt/translateStart'
 import { NarrativeView } from '../../ui/NarrativeView'
 import { PageHeader } from '../../ui/PageHeader'
@@ -27,6 +28,9 @@ export default function StoryPage() {
   const sessions = useSessionsForStory(id)
   const summaries = useSessionSummaries(id)
   const [starting, setStarting] = useState(false)
+  const settings = useSettings()
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  const [translateError, setTranslateError] = useState<string | null>(null)
 
   if (data === undefined) return null
   if (data === null)
@@ -39,6 +43,25 @@ export default function StoryPage() {
 
   const { story, characters } = data
   const start = story.startSettings[0]
+
+  const source = storyLanguage(story)
+  const target: Language = source === 'fr' ? 'en' : 'fr'
+  const targetLabel = LANGUAGES.find((l) => l.id === target)
+  const translate = async () => {
+    if (!settings || !isReady(settings)) {
+      setTranslateError('configure d’abord une clé API dans les Réglages')
+      return
+    }
+    setTranslateError(null)
+    try {
+      const copyId = await translateStoryCopy(settings, story.id, target, (done, total) => setProgress({ done, total }))
+      navigate(`/histoire/${copyId}`)
+    } catch (err) {
+      setTranslateError(describeLlmError(err))
+    } finally {
+      setProgress(null)
+    }
+  }
 
   const remove = async () => {
     if (!window.confirm(`Supprimer définitivement « ${story.title} » et ses personnages ?`)) return
@@ -119,6 +142,21 @@ export default function StoryPage() {
             <NarrativeView text={start.prologue} />
           </section>
         )}
+
+        <section className="mt-10 space-y-2 px-5">
+          <Button variant="secondary" className="w-full" onClick={translate} disabled={!!progress}>
+            {progress
+              ? `Traduction… ${progress.done}/${progress.total}`
+              : `${targetLabel?.flag ?? '🌐'} Créer une version ${targetLabel?.label ?? target}`}
+          </Button>
+          <p className="text-xs leading-relaxed text-muted">
+            Copie complète traduite (univers, personnages, lorebook, prologue, jauges, fins, descriptions d'images). L'original ne change pas.
+            Garde l'écran ouvert pendant la traduction.
+          </p>
+          {translateError && (
+            <p className="rounded-xl border border-accent/40 bg-accent-soft px-3 py-2 text-sm">Traduction impossible : {translateError}</p>
+          )}
+        </section>
 
         <div className="mt-10 px-5">
           <Button variant="danger" onClick={remove}>

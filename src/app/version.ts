@@ -1,5 +1,5 @@
 /** Version affichée dans l'application. Mise à jour à chaque livraison. */
-export const APP_VERSION = '1.2.3'
+export const APP_VERSION = '1.3.0'
 
 /** Étapes prévues, affichées sur l'écran d'accueil tant que l'app est en construction. */
 export const ROADMAP: ReadonlyArray<{ version: string; label: string }> = [
@@ -15,6 +15,7 @@ export const ROADMAP: ReadonlyArray<{ version: string; label: string }> = [
   { version: '1.0', label: 'Version stable : import de cartes et de wikis, lorebook, lecture à voix haute' },
   { version: '1.1', label: 'Relations : affinité avec chaque personnage' },
   { version: '1.2', label: 'Humeurs : images des personnages selon leur état d\'esprit' },
+  { version: '1.3', label: 'Traduire une histoire entière (copie FR ↔ EN)' },
 ]
 
 /** Indique si une étape de la feuille de route est déjà livrée. */
