@@ -1,0 +1,26 @@
+name: Générer le package-lock
+
+# Lancé à la main : installe les dépendances et enregistre le package-lock.json dans le dépôt,
+# pour que chaque publication utilise exactement les mêmes versions (npm ci).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund --package-lock-only
+      - name: Enregistrer le package-lock
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898273+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git diff --cached --quiet && echo "Rien à enregistrer" || git commit -m "Ajout du package-lock.json (versions figées) [skip ci]"
+          git push
