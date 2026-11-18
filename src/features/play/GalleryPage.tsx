@@ -4,7 +4,7 @@ import { isIllustration, useStoryImages } from '../../data/images'
 import { useSessionData } from '../../data/sessions'
 import { PageHeader } from '../../ui/PageHeader'
 import { StoredImage } from '../../ui/StoredImage'
-import { ImageViewer } from './GamePage'
+import { ImageViewer } from './parts/ImageViewer'
 
 /** Galerie d'une partie : les images de scène se débloquent quand elles apparaissent dans l'histoire. */
 export default function GalleryPage() {

@@ -9,7 +9,7 @@ import { Button } from '../../ui/Button'
 import { NarrativeView } from '../../ui/NarrativeView'
 import { PageHeader } from '../../ui/PageHeader'
 import { StoredImage } from '../../ui/StoredImage'
-import { ImageViewer } from './GamePage'
+import { ImageViewer } from './parts/ImageViewer'
 
 /** Mode relecture (v0.9) : la branche affichée de la partie, comme un livre, sans boutons de jeu. */
 export default function ReadingPage() {

@@ -21,19 +21,16 @@ import { recordCost } from '../../data/costs'
 import { describeLlmError } from '../../engine/llm/errors'
 import { buildTurnAnalysisRequest, parseTurnAnalysis } from '../../engine/memory/analysis'
 import { affinityLines, applyAffinityDeltas, meetCharacters } from '../../engine/relations/affinity'
-import { expressionSets, expressive, pickExpression, seedOf } from '../../engine/images/expressions'
-import { MOODS, type Mood } from '../../engine/images/types'
+import { chooseSceneImage, prepareTurnImages, resolveExpressions } from '../../engine/images/turnImages'
 import { buildSummaryRequest, planSummary, summaryIndex } from '../../engine/memory/summary'
 import { applyDeltas, describeStat, findTriggeredEnding, initStats } from '../../engine/progression/rules'
 import { formatLore, selectLore } from '../../engine/lore/lore'
 import { buildHistory, buildMemoryPrompt, buildSystemPrompt, CONTINUE_INSTRUCTION, HISTORY_CHAR_BUDGET, type StoryContext } from '../../engine/prompt/storyPrompt'
-import { parseNarrative } from '../../engine/parser/narrative'
 import { sanitizeNarration } from '../../engine/parser/sanitize'
 import { buildAliasRequest, parseAlias } from '../../engine/prompt/alias'
 import { parseCommand } from '../../engine/session/commands'
 import { languageInstruction, lengthOption, styleInstruction } from '../../engine/session/options'
 import { deepestLeaf, getThread, joinContinuation, siblingsOf, toEntries } from '../../engine/session/thread'
-import { findPortrait } from '../../ui/NarrativeView'
 import type { Message, ThreadEntry } from '../../engine/session/types'
 
 export type Streaming =
@@ -176,20 +173,11 @@ export function useGame(sessionId: string | undefined) {
         const portraits = Object.fromEntries(
           data.characters.filter((c) => c.portraitImageId).map((c) => [c.name, c.portraitImageId as string]),
         )
-        const storyImages = await loadSceneImages(data.story.id)
-        const sets = expressionSets(data.characters, storyImages)
-        const sceneImages = storyImages.map((img) => {
-          const owners = sets.filter((s) => Object.values(s.byMood).some((ids) => ids?.includes(img.id))).map((s) => s.name)
-          const mood = img.mood && img.mood !== 'neutral' ? [MOODS.find((m) => m.id === img.mood)?.label ?? img.mood] : []
-          return owners.length || mood.length ? { ...img, tags: [...owners, ...mood, ...img.tags] } : img
-        })
-        // Personnages présents dans la dernière réponse et illustrés dans plusieurs humeurs.
-        const lastEntry = entries[entries.length - 1]
-        const expressiveSets = expressive(sets)
-        const present = lastEntry?.role === 'ai' ? meetCharacters({}, expressiveSets.map((s) => ({ id: s.characterId, name: s.name })), lastEntry.content) : {}
-        const expressionInput = expressiveSets
-          .filter((s) => s.characterId in present)
-          .map((s) => ({ name: s.name, moods: Object.keys(s.byMood) as Mood[] }))
+        const { sets, sceneImages, expressionInput } = prepareTurnImages(
+          data.characters,
+          await loadSceneImages(data.story.id),
+          entries[entries.length - 1],
+        )
         const result = await provider.complete(
           buildTurnAnalysisRequest(
             active.utilityModel,
@@ -212,27 +200,13 @@ export function useGame(sessionId: string | undefined) {
           expressionInput.map((e) => e.name),
         )
         const last = entries[entries.length - 1]
-        // Images d'humeur choisies pour ce passage (v1.2).
-        const expressionMap: Record<string, string> = {}
-        for (const e of analysis.expressions) {
-          const set = sets.find((s) => s.name === e.name)
-          const imageId = set && last ? pickExpression(set, e.mood, seedOf(last.id)) : undefined
-          if (imageId) expressionMap[e.name] = imageId
+        if (last?.role === 'ai') {
+          // Images d'humeur choisies pour ce passage (v1.2), puis grande image du passage.
+          const expressionMap = resolveExpressions(sets, analysis.expressions, last.id)
+          if (Object.keys(expressionMap).length) await setVariantExpressions(last.id, expressionMap)
+          const imageId = chooseSceneImage(last.content, analysis.imageId, sets, expressionMap, portraits)
+          if (imageId) await setSceneImage(sessionId, entries.map((e) => e.id), last.id, imageId)
         }
-        if (last?.role === 'ai' && Object.keys(expressionMap).length) await setVariantExpressions(last.id, expressionMap)
-        // Sans choix de l'IA : image du premier personnage qui parle dans le passage (son humeur, sinon son portrait).
-        const fallback =
-          last?.role === 'ai'
-            ? parseNarrative(last.content)
-                .flatMap((seg) => (seg.type === 'dialogue' ? [findPortrait(seg.speaker, { ...portraits, ...expressionMap })] : []))
-                .find((id): id is string => !!id)
-            : undefined
-        // Si l'IA choisit l'image d'un personnage dont l'humeur est connue, on affiche son image d'humeur.
-        const chosenOwner = analysis.imageId
-          ? sets.find((s) => s.name in expressionMap && Object.values(s.byMood).some((ids) => ids?.includes(analysis.imageId!)))
-          : undefined
-        const imageId = (chosenOwner && expressionMap[chosenOwner.name]) || analysis.imageId || fallback
-        if (imageId && last?.role === 'ai') await setSceneImage(sessionId, entries.map((e) => e.id), last.id, imageId)
         const nextStats = applyDeltas(statDefs, values, analysis.statDeltas)
         await patchSession(sessionId, {
           suggestions: analysis.suggestions,
