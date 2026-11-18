@@ -70,7 +70,8 @@ export async function loadSceneImages(storyId: string): Promise<ImageAsset[]> {
 
 /** Adresse affichable d'une image stockée (libérée automatiquement). */
 export function useImageUrl(id: string | undefined): string | undefined {
-  const blob = useLiveQuery(async () => (id ? (await db.images.get(id))?.blob : undefined), [id])
+  const asset = useLiveQuery(async () => (id ? await db.images.get(id) : undefined), [id])
+  const blob = asset?.blob
   const [url, setUrl] = useState<string>()
   useEffect(() => {
     if (!blob) {
@@ -81,7 +82,20 @@ export function useImageUrl(id: string | undefined): string | undefined {
     setUrl(objectUrl)
     return () => URL.revokeObjectURL(objectUrl)
   }, [blob])
-  return url
+  return url ?? asset?.url
+}
+
+/** Ajoute une image liée (affichée depuis son adresse, non stockée). Renvoie son identifiant. */
+export async function addLinkedImage(
+  storyId: string,
+  url: string,
+  category: ImageCategory,
+  tags: string[] = [],
+  description = '',
+): Promise<string> {
+  const id = newId()
+  await db.images.add({ id, storyId, url, mime: '', width: 0, height: 0, category, tags, description, createdAt: Date.now() })
+  return id
 }
 
 /* ---------- Sauvegarde : images ↔ texte ---------- */

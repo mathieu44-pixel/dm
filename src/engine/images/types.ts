@@ -2,7 +2,10 @@
 export interface ImageAsset {
   id: string
   storyId: string
-  blob: Blob
+  /** Fichier stocké sur l'appareil. Absent pour une image liée. */
+  blob?: Blob
+  /** Image liée (v1.1) : affichée depuis son adresse d'origine (wiki), il faut internet pour la voir. */
+  url?: string
   mime: string
   width: number
   height: number

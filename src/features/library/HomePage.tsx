@@ -126,7 +126,7 @@ export default function HomePage() {
           </span>
         </Link>
         <Link to="/importer" className="mb-4 -mt-2 block text-center text-xs text-muted underline-offset-2 hover:underline">
-          📚 Importer un univers depuis un wiki (test)
+          📚 Importer un univers depuis un wiki
         </Link>
 
         {mode === 'character' && (

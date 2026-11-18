@@ -83,7 +83,7 @@ export async function exportAll(): Promise<Backup> {
     db.meta.toArray(),
   ])
   const images = await Promise.all(
-    (await db.images.toArray()).map(async ({ blob, ...rest }) => ({ ...rest, dataUrl: await blobToDataUrl(blob) })),
+    (await db.images.toArray()).map(async ({ blob, ...rest }) => ({ ...rest, dataUrl: blob ? await blobToDataUrl(blob) : '' })),
   )
   return {
     format: BACKUP_FORMAT,
@@ -104,7 +104,7 @@ export async function exportAll(): Promise<Backup> {
 export async function importBackup(backup: Backup): Promise<void> {
   // Les images sont reconverties avant la transaction (IndexedDB n'accepte pas d'attente externe pendant une transaction).
   const images: ImageAsset[] = await Promise.all(
-    backup.images.map(async ({ dataUrl, ...rest }) => ({ ...rest, blob: await dataUrlToBlob(dataUrl) })),
+    backup.images.map(async ({ dataUrl, ...rest }) => (dataUrl ? { ...rest, blob: await dataUrlToBlob(dataUrl) } : rest)),
   )
   await db.transaction('rw', [db.stories, db.characters, db.avatars, db.sessions, db.messages, db.memories, db.images, db.meta], async () => {
     await db.stories.bulkPut(backup.stories)

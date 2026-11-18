@@ -16,6 +16,12 @@ export interface CreationOptions {
   language: 'fr' | 'en'
   /** Jauges et fins (mode Histoire uniquement). */
   withProgression: boolean
+  /** Documentation déjà rassemblée (import d'univers, v1.1), non tronquée à la limite de l'idée. */
+  context?: string
+  /** Les personnages sont déjà fournis : l'IA n'en crée pas. */
+  presetCharacters?: boolean
+  /** Introduction écrite par le joueur, à mettre en forme sans la changer. */
+  introduction?: string
 }
 
 export interface DraftCharacter {
@@ -94,7 +100,9 @@ export function buildCreationRequest(model: string, options: CreationOptions): L
 
   const rules = [
     `- Langue : ${en ? 'écris TOUT le contenu (textes, noms de jauges, prologue, suggestions) EN ANGLAIS' : 'écris tout le contenu en français'}.`,
-    isCharacter
+    options.presetCharacters
+      ? '- Les personnages sont déjà définis (voir la documentation) : renvoie "characters": [] et fais-les intervenir par leur nom dans le prologue.'
+      : isCharacter
       ? '- Mode personnage : UN seul personnage, très détaillé, pour une conversation libre avec le joueur. Le prologue est son premier message d\'accueil.'
       : `- 2 à ${CREATION_LIMITS.characters} personnages marquants, aux personnalités contrastées, qui ont chacun une raison d'interagir avec le joueur.`,
     '- Le joueur incarne son propre personnage (son avatar) : ne le décris pas, ne lui donne pas de nom, adresse-toi à lui à la deuxième personne dans le prologue.',
@@ -122,8 +130,16 @@ export function buildCreationRequest(model: string, options: CreationOptions): L
       {
         role: 'user',
         content: [
-          `Idée ou inspiration du joueur :\n${options.idea.trim().slice(0, CREATION_LIMITS.idea)}`,
+          `Idée ou inspiration du joueur :\n${options.idea.trim().slice(0, CREATION_LIMITS.idea) || '(aucune : pars de la documentation)'}`,
           '',
+          ...(options.context ? [options.context, ''] : []),
+          ...(options.introduction?.trim()
+            ? [
+                "Introduction écrite par le joueur : utilise-la comme prologue. Garde son contenu et son ton, traduis-la si besoin, et mets-la seulement au format narratif demandé :",
+                options.introduction.trim().slice(0, 4000),
+                '',
+              ]
+            : []),
           `Conçois ${isCharacter ? 'un personnage pour une conversation libre' : 'une histoire interactive'} à partir de ce texte. S'il est détaillé (personnages, lieux, intrigue, ton), reprends fidèlement ce qu'il décrit et complète seulement ce qui manque. Réponds avec ce JSON :`,
           ...schema,
           '',
