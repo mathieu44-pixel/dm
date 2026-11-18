@@ -9,6 +9,7 @@ import { activeContent, type Message, type Session } from '../../engine/session/
 import { Button } from '../../ui/Button'
 import { IconBook, IconBranch, IconContinue, IconEdit, IconNext, IconPrev, IconRegenerate, IconSearch, IconSpeaker, IconStop, IconTrash } from '../../ui/icons'
 import { useSpeech } from '../../ui/useSpeech'
+import { useBack } from '../../ui/useBack'
 import { SPEECH_RATES } from '../../engine/speech/speech'
 import { CostDetails } from '../../ui/CostDetails'
 import { scrollToMatch } from '../../ui/scrollToMatch'
@@ -40,6 +41,7 @@ export default function GamePage() {
   const [costsOpen, setCostsOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const goBack = useBack(data?.session ? `/histoire/${data.session.storyId}` : '/')
   const speechPrefs = useSpeechPrefs()
   const speech = useSpeech(data?.session.language === 'en' ? 'en' : 'fr', speechPrefs.rate)
 
@@ -111,7 +113,7 @@ export default function GamePage() {
         <button
           type="button"
           aria-label="Retour"
-          onClick={() => navigate(`/histoire/${session.storyId}`)}
+          onClick={goBack}
           className="flex h-11 w-11 items-center justify-center rounded-full text-2xl text-muted"
         >
           ‹
