@@ -10,6 +10,7 @@ import { useSettings } from '../../data/settings'
 import { activeProvider, isReady } from '../../data/settingsModel'
 import { createProvider } from '../../engine/llm/client'
 import { recordCost } from '../../data/costs'
+import { describeLlmError } from '../../engine/llm/errors'
 import { buildStartTranslationRequest, parseStartTranslation } from '../../engine/prompt/translateStart'
 import { NarrativeView } from '../../ui/NarrativeView'
 import { PageHeader } from '../../ui/PageHeader'
@@ -171,23 +172,27 @@ function StartSheet({ story, onClose }: { story: Story; onClose: () => void }) {
   const chosenAvatar = avatarId === undefined ? (defaultId ?? null) : avatarId
   const settings = useSettings()
   const [translating, setTranslating] = useState(false)
+  const [translateError, setTranslateError] = useState<string | null>(null)
 
   const start = async () => {
     const avatar = avatars?.find((a) => a.id === chosenAvatar) ?? null
     // Langue de jeu différente de celle de l'histoire : le prologue écrit est traduit (sinon il reste tel quel).
     let translated: { prologue: string; suggestions: string[] } | undefined
     const setting = story.startSettings.find((s) => s.id === startId) ?? story.startSettings[0]
-    if (setting && language !== (story.defaultLanguage ?? 'fr') && settings && isReady(settings)) {
+    // Après un échec signalé, un second appui lance la partie sans traduction.
+    if (setting && !translateError && language !== (story.defaultLanguage ?? 'fr') && settings && isReady(settings)) {
       setTranslating(true)
       try {
         const active = activeProvider(settings)
         const result = await createProvider(active.provider, active.apiKey).complete(
           buildStartTranslationRequest(active.utilityModel, setting.prologue, setting.initialSuggestions, language),
         )
-        translated = parseStartTranslation(result.text, setting.initialSuggestions.length) ?? undefined
         await recordCost(null, 'command', result)
-      } catch {
-        translated = undefined
+        translated = parseStartTranslation(result.text, setting.initialSuggestions.length) ?? undefined
+        if (!translated) throw new Error("réponse de l'IA illisible")
+      } catch (err) {
+        setTranslateError(err instanceof Error ? describeLlmError(err) : String(err))
+        return
       } finally {
         setTranslating(false)
       }
@@ -245,7 +250,10 @@ function StartSheet({ story, onClose }: { story: Story; onClose: () => void }) {
               <button
                 key={l.id}
                 type="button"
-                onClick={() => setLanguage(l.id)}
+                onClick={() => {
+                  setLanguage(l.id)
+                  setTranslateError(null)
+                }}
                 className={'flex-1 rounded-lg px-2 py-2 text-sm ' + (language === l.id ? 'bg-accent text-ink' : 'text-muted')}
               >
                 {l.flag} {l.label}
@@ -266,12 +274,17 @@ function StartSheet({ story, onClose }: { story: Story; onClose: () => void }) {
           </fieldset>
         )}
 
+        {translateError && (
+          <p className="rounded-xl border border-accent/40 bg-accent-soft px-3 py-2 text-sm">
+            Traduction du prologue impossible ({translateError}). Tu peux réessayer plus tard ou commencer avec le texte d'origine.
+          </p>
+        )}
         <div className="flex gap-3 pt-2">
           <Button variant="secondary" className="flex-1" onClick={onClose}>
             Annuler
           </Button>
           <Button className="flex-1" onClick={start} disabled={translating}>
-            {translating ? 'Traduction…' : 'Commencer'}
+            {translating ? 'Traduction…' : translateError ? 'Commencer sans traduire' : 'Commencer'}
           </Button>
         </div>
       </div>

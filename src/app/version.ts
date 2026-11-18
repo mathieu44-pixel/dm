@@ -1,5 +1,5 @@
 /** Version affichée dans l'application. Mise à jour à chaque livraison. */
-export const APP_VERSION = '1.2.1'
+export const APP_VERSION = '1.2.2'
 
 /** Étapes prévues, affichées sur l'écran d'accueil tant que l'app est en construction. */
 export const ROADMAP: ReadonlyArray<{ version: string; label: string }> = [

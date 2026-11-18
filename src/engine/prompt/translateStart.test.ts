@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { buildStartTranslationRequest, parseStartTranslation } from './translateStart'
 
 describe('traduction du départ', () => {
-  it('demande la langue cible et lit la réponse', () => {
+  it('demande la langue cible et lit la réponse balisée', () => {
     const req = buildStartTranslationRequest('m', '「Bonjour」', ['Partir'], 'en')
     expect(req.messages[0].content).toContain('en anglais')
-    expect(parseStartTranslation('ok {"prologue":"「Hello」","suggestions":["Leave"]}', 1)).toEqual({ prologue: '「Hello」', suggestions: ['Leave'] })
+    const text = '===PROLOGUE===\n「Hello」\n\n*He said "hi"*\n===SUGGESTIONS===\n1. Leave'
+    expect(parseStartTranslation(text, 1)).toEqual({ prologue: '「Hello」\n\n*He said "hi"*', suggestions: ['Leave'] })
   })
-  it('écarte une réponse illisible et des suggestions incomplètes', () => {
+  it('écarte une réponse sans balise et des suggestions incomplètes', () => {
     expect(parseStartTranslation('rien', 1)).toBeNull()
-    expect(parseStartTranslation('{"prologue":"Hi","suggestions":[]}', 2)).toEqual({ prologue: 'Hi', suggestions: [] })
+    expect(parseStartTranslation('```\n===PROLOGUE===\nHi\n===SUGGESTIONS===\nA\n```', 2)).toEqual({ prologue: 'Hi', suggestions: [] })
   })
 })
