@@ -1,5 +1,5 @@
 /** Version affichée dans l'application. Mise à jour à chaque livraison. */
-export const APP_VERSION = '0.9.11'
+export const APP_VERSION = '1.0.0'
 
 /** Étapes prévues, affichées sur l'écran d'accueil tant que l'app est en construction. */
 export const ROADMAP: ReadonlyArray<{ version: string; label: string }> = [
@@ -12,6 +12,7 @@ export const ROADMAP: ReadonlyArray<{ version: string; label: string }> = [
   { version: '0.7', label: 'Mode Character & import SillyTavern' },
   { version: '0.8', label: 'Assistant de création' },
   { version: '0.9', label: 'Coûts & relecture' },
+  { version: '1.0', label: 'Version stable : import de cartes et de wikis, lorebook, lecture à voix haute' },
 ]
 
 /** Indique si une étape de la feuille de route est déjà livrée. */
