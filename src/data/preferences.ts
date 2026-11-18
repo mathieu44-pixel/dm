@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import type { SpeechRate } from '../engine/speech/speech'
 import { db } from './db'
 
 /** Taille du texte de lecture (narration et dialogues). */
@@ -39,4 +40,25 @@ export function useTextSize(): TextSize {
 
 export async function setTextSize(size: TextSize): Promise<void> {
   await db.meta.put({ key: 'textSize', value: size })
+}
+
+/* ---------- Lecture à voix haute (v0.9.6) ---------- */
+
+export interface SpeechPrefs {
+  auto: boolean
+  rate: SpeechRate
+}
+
+export function useSpeechPrefs(): SpeechPrefs {
+  return (
+    useLiveQuery(async () => {
+      const value = (await db.meta.get('speech'))?.value as Partial<SpeechPrefs> | undefined
+      return { auto: !!value?.auto, rate: value?.rate ?? 'normal' }
+    }, []) ?? { auto: false, rate: 'normal' }
+  )
+}
+
+export async function setSpeechPrefs(p: Partial<SpeechPrefs>): Promise<void> {
+  const current = ((await db.meta.get('speech'))?.value as Partial<SpeechPrefs> | undefined) ?? {}
+  await db.meta.put({ key: 'speech', value: { auto: false, rate: 'normal', ...current, ...p } })
 }

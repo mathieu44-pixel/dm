@@ -76,3 +76,16 @@ export const IconBook = () => (
     <path d="M12 6.5v13" />
   </Svg>
 )
+
+export const IconSpeaker = () => (
+  <Svg>
+    <path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z" />
+    <path d="M15.5 9a4 4 0 010 6M18 6.5a7.5 7.5 0 010 11" />
+  </Svg>
+)
+
+export const IconStop = () => (
+  <Svg>
+    <rect x="7" y="7" width="10" height="10" rx="1.5" />
+  </Svg>
+)

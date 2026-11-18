@@ -18,7 +18,7 @@ export interface CardData {
   creatorNotes: string
   tags: string[]
   /** Entrées du « lorebook » intégré (clés + contenu). */
-  lore: { keys: string[]; content: string }[]
+  lore: { keys: string[]; content: string; constant?: boolean }[]
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '')
@@ -36,7 +36,7 @@ export function parseCharacterCard(json: unknown): CardData {
   const lore = Array.isArray(book?.entries)
     ? (book.entries as Record<string, unknown>[])
         .filter((e) => e && e.enabled !== false && str(e.content).trim())
-        .map((e) => ({ keys: strList(e.keys), content: str(e.content).trim() }))
+        .map((e) => ({ keys: strList(e.keys), content: str(e.content).trim(), ...(e.constant === true ? { constant: true } : {}) }))
     : []
 
   return {

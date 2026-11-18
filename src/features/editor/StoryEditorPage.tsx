@@ -8,6 +8,7 @@ import { TextArea, TextField } from '../../ui/Field'
 import { NarrativeView } from '../../ui/NarrativeView'
 import { PageHeader } from '../../ui/PageHeader'
 import { ImagePicker, ImagesEditor } from './ImagesEditor'
+import { LoreEditor } from './LoreEditor'
 import { ProgressionEditor } from './ProgressionEditor'
 import { cleanCommandName } from '../../engine/session/commands'
 import { LANGUAGES } from '../../engine/session/options'
@@ -256,6 +257,10 @@ export default function StoryEditorPage() {
               />
             ))}
           </div>
+        </Section>
+
+        <Section title={`Lorebook (${(story.lore ?? []).length})`}>
+          <LoreEditor entries={story.lore ?? []} onChange={(lore) => patch({ lore })} />
         </Section>
 
         <Section title={`Commandes (${(story.commands ?? []).length})`}>

@@ -1,3 +1,4 @@
+import { LORE_LIMITS } from '../engine/lore/lore'
 import { CARD_SITES, cardRequest, chubToCard, parseCardUrl, pygmalionToCard } from '../engine/import/cardUrl'
 import { convertGreeting, extractCardFromPng, parseCharacterCard, substituteVariables, type CardData } from '../engine/import/sillytavern'
 import { db } from './db'
@@ -32,14 +33,20 @@ export function cardToStory(card: CardData, now = Date.now()): { story: Story; c
     initialSuggestions: [],
   }))
 
-  const lore = card.lore.map((e) => `- ${e.keys.length ? `${e.keys.join(', ')} : ` : ''}${sub(e.content)}`).join('\n')
   const story: Story = {
     id: newId(),
     title: card.name,
     subtitle: (card.creatorNotes || card.description).split(/\n/)[0].slice(0, 200),
     tags: parseTags(card.tags.join(',')),
     mode: 'character',
-    worldLore: [sub(card.scenario), lore && `Lore :\n${lore}`].filter(Boolean).join('\n\n'),
+    worldLore: sub(card.scenario),
+    // Lorebook de la carte : chaque entrée n'est envoyée que si ses mots-clés apparaissent (v0.9.6).
+    lore: card.lore.slice(0, LORE_LIMITS.entries).map((e) => ({
+      id: newId(),
+      keys: e.keys.map((k) => k.trim()).filter(Boolean),
+      content: sub(e.content),
+      ...(e.constant || !e.keys.length ? { alwaysOn: true } : {}),
+    })),
     systemPrompt: [sub(card.systemPrompt), sub(card.postHistoryInstructions)].filter(Boolean).join('\n\n'),
     writingRules: '',
     characterIds: [characterId],

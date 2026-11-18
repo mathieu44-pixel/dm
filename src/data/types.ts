@@ -1,3 +1,4 @@
+import type { LoreEntry } from '../engine/lore/lore'
 import { DEFAULT_STORY_MODEL, DEFAULT_UTILITY_MODEL } from '../engine/llm/models'
 import type { ProviderId } from '../engine/llm/types'
 import type { EndingDef, StatDef } from '../engine/progression/types'
@@ -86,6 +87,8 @@ export interface Story {
   coverImageId?: string
   /** Commandes propres à l'histoire (v0.6). */
   commands?: StoryCommand[]
+  /** Lorebook : entrées envoyées à l'IA seulement quand leurs mots-clés apparaissent (v0.9.6). */
+  lore?: LoreEntry[]
   /** Langue proposée par défaut au lancement d'une partie (v0.6). */
   defaultLanguage?: Language
   /** Histoire d'exemple fournie avec l'application. */

@@ -21,6 +21,7 @@ import { describeLlmError } from '../../engine/llm/errors'
 import { buildTurnAnalysisRequest, parseTurnAnalysis } from '../../engine/memory/analysis'
 import { buildSummaryRequest, planSummary, summaryIndex } from '../../engine/memory/summary'
 import { applyDeltas, describeStat, findTriggeredEnding, initStats } from '../../engine/progression/rules'
+import { formatLore, selectLore } from '../../engine/lore/lore'
 import { buildHistory, buildMemoryPrompt, buildSystemPrompt, CONTINUE_INSTRUCTION, HISTORY_CHAR_BUDGET, type StoryContext } from '../../engine/prompt/storyPrompt'
 import { parseNarrative } from '../../engine/parser/narrative'
 import { sanitizeNarration } from '../../engine/parser/sanitize'
@@ -102,6 +103,7 @@ export function useGame(sessionId: string | undefined) {
         length: length.instruction,
         style: styleInstruction(session?.writingStyle, session?.customStyle),
         aliases: session?.aliases ?? [],
+        lore: formatLore(selectLore(data?.story.lore, [...entries.map((e) => e.content), extra ?? ''])),
       })
       const controller = new AbortController()
       abortRef.current = controller

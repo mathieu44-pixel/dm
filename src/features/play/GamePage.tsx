@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { setTextSize, stepTextSize, TEXT_SIZES, useTextSize } from '../../data/preferences'
+import { setSpeechPrefs, setTextSize, stepTextSize, TEXT_SIZES, useSpeechPrefs, useTextSize } from '../../data/preferences'
 import { deleteSession, patchSession } from '../../data/sessions'
 import { useSettings } from '../../data/settings'
 import { activeProvider } from '../../data/settingsModel'
 import { formatUsd } from '../../engine/llm/models'
 import { activeContent, type Message, type Session } from '../../engine/session/types'
 import { Button } from '../../ui/Button'
-import { IconBook, IconBranch, IconContinue, IconEdit, IconNext, IconPrev, IconRegenerate, IconSearch, IconTrash } from '../../ui/icons'
+import { IconBook, IconBranch, IconContinue, IconEdit, IconNext, IconPrev, IconRegenerate, IconSearch, IconSpeaker, IconStop, IconTrash } from '../../ui/icons'
+import { useSpeech } from '../../ui/useSpeech'
+import { SPEECH_RATES } from '../../engine/speech/speech'
 import { CostDetails } from '../../ui/CostDetails'
 import { scrollToMatch } from '../../ui/scrollToMatch'
 import { searchEntries } from '../../engine/session/search'
@@ -38,6 +40,18 @@ export default function GamePage() {
   const [costsOpen, setCostsOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const speechPrefs = useSpeechPrefs()
+  const speech = useSpeech(data?.session.language === 'en' ? 'en' : 'fr', speechPrefs.rate)
+
+  // Lecture automatique de chaque nouvelle réponse, une fois écrite.
+  const wasBusy = useRef(busy)
+  useEffect(() => {
+    const finished = wasBusy.current && !busy
+    wasBusy.current = busy
+    if (!finished || !speechPrefs.auto) return
+    const last = thread[thread.length - 1]
+    if (last?.role === 'ai' && !last.ooc) void speech.speak(last.id, activeContent(last))
+  }, [busy, thread, speechPrefs.auto, speech])
 
   // Suit le texte au fil de l'écriture.
   const streamLength = streaming?.text.length ?? 0
@@ -65,6 +79,7 @@ export default function GamePage() {
     if (!text.trim() || busy) return
     setInput('')
     setCommandsOpen(false)
+    speech.stop()
     await game.send(text)
   }
 
@@ -191,6 +206,8 @@ export default function GamePage() {
                     if (window.confirm('Supprimer cette réponse et toute la suite ?')) void game.deleteMessage(message)
                   }}
                   onVariant={(i) => game.selectVariant(message.id, i)}
+                  speaking={speech.supported ? speech.speakingId === message.id : undefined}
+                  onSpeak={() => (speech.speakingId === message.id ? speech.stop() : void speech.speak(message.id, content))}
                 />
               )}
             </article>
@@ -366,6 +383,40 @@ export default function GamePage() {
               </button>
             </span>
           </div>
+          {speech.supported && (
+            <div className="space-y-3 rounded-xl bg-surface-2 px-4 py-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span>
+                  <span className="text-muted">Lecture à voix haute automatique</span>
+                  <span className="block text-xs text-muted">Sinon, bouton 🔊 sous chaque réponse.</span>
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={speechPrefs.auto}
+                  onClick={() => void setSpeechPrefs({ auto: !speechPrefs.auto })}
+                  className={'relative h-7 w-12 shrink-0 rounded-full transition ' + (speechPrefs.auto ? 'bg-accent' : 'bg-line')}
+                >
+                  <span className={'absolute top-1 h-5 w-5 rounded-full bg-ink transition-all ' + (speechPrefs.auto ? 'left-6' : 'left-1')} />
+                </button>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted">Vitesse</span>
+                <span className="flex gap-1">
+                  {SPEECH_RATES.map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => void setSpeechPrefs({ rate: r.id })}
+                      className={'rounded-lg border px-2.5 py-1 text-xs ' + (speechPrefs.rate === r.id ? 'border-accent text-accent' : 'border-line text-muted')}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </span>
+              </div>
+            </div>
+          )}
           <SessionOptions session={session} />
           <div className="flex items-center justify-between rounded-xl bg-surface-2 px-4 py-3 text-sm">
             <span className="text-muted">Images de scène</span>
@@ -560,6 +611,8 @@ function AiActions({
   onEdit,
   onDelete,
   onVariant,
+  speaking,
+  onSpeak,
 }: {
   message: Message
   isLast: boolean
@@ -571,6 +624,9 @@ function AiActions({
   onEdit: () => void
   onDelete: () => void
   onVariant: (index: number) => void
+  /** undefined : synthèse vocale indisponible sur cet appareil. */
+  speaking?: boolean
+  onSpeak: () => void
 }) {
   const isPrologue = message.parentId === null
   const count = message.variants.length
@@ -603,6 +659,11 @@ function AiActions({
       {isLast && !message.ooc && (
         <IconButton label="Continuer" onClick={onContinue}>
           <IconContinue />
+        </IconButton>
+      )}
+      {speaking !== undefined && !message.ooc && (
+        <IconButton label={speaking ? 'Arrêter la lecture' : 'Écouter'} onClick={onSpeak}>
+          {speaking ? <IconStop /> : <IconSpeaker />}
         </IconButton>
       )}
       <IconButton label="Modifier" onClick={onEdit}>

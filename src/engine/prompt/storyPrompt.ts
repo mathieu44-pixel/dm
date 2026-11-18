@@ -139,6 +139,8 @@ export interface MemoryContext {
   length?: string
   style?: string
   aliases?: string[]
+  /** Entrées du lorebook déclenchées par les derniers messages, déjà formatées (v0.9.6). */
+  lore?: string
 }
 
 /**
@@ -154,6 +156,7 @@ export function buildMemoryPrompt(memory: MemoryContext): string {
 
   return [
     section('Notes du joueur (à respecter en priorité)', notes),
+    section("Encyclopédie de l'univers (éléments évoqués récemment)", memory.lore ?? ''),
     section('Souvenirs importants', longTerm.map((m) => `- ${m.text}`).join('\n')),
     section('Mémoire de la partie', auto.map((m) => `- ${MEMORY_LABELS[m.kind]} : ${m.text}`).join('\n')),
     section("Résumé de l'histoire jusqu'ici", memory.summary),
