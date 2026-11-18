@@ -120,6 +120,15 @@ export function looksEnglish(text: string): boolean {
   return en >= 4 && en > fr * 1.5
 }
 
+/** Langue d'un texte (français ou anglais), ou indéterminée s'il est trop court ou mélangé. */
+export function textLanguage(text: string): 'fr' | 'en' | undefined {
+  const en = text.match(ENGLISH_WORDS)?.length ?? 0
+  const fr = text.match(FRENCH_WORDS)?.length ?? 0
+  if (en >= 4 && en > fr * 1.5) return 'en'
+  if (fr >= 4 && fr > en * 1.5) return 'fr'
+  return undefined
+}
+
 /** Texte d'une fiche extraite, pour vérifier sa langue. */
 export function extractionText(e: PageExtraction): string {
   return e.kind === 'character'

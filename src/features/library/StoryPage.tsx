@@ -11,6 +11,7 @@ import { activeProvider, isReady } from '../../data/settingsModel'
 import { createProvider } from '../../engine/llm/client'
 import { recordCost } from '../../data/costs'
 import { describeLlmError } from '../../engine/llm/errors'
+import { textLanguage } from '../../engine/import/universe'
 import { buildStartTranslationRequest, parseStartTranslation } from '../../engine/prompt/translateStart'
 import { NarrativeView } from '../../ui/NarrativeView'
 import { PageHeader } from '../../ui/PageHeader'
@@ -180,7 +181,9 @@ function StartSheet({ story, onClose }: { story: Story; onClose: () => void }) {
     let translated: { prologue: string; suggestions: string[] } | undefined
     const setting = story.startSettings.find((s) => s.id === startId) ?? story.startSettings[0]
     // Après un échec signalé, un second appui lance la partie sans traduction.
-    if (setting && !translateError && language !== (story.defaultLanguage ?? 'fr') && settings && isReady(settings)) {
+    // Langue réelle du prologue (la langue réglée sur l'histoire peut être différente de celle du texte).
+    const source = setting ? (textLanguage(setting.prologue) ?? story.defaultLanguage ?? 'fr') : language
+    if (setting && !translateError && language !== source && settings && isReady(settings)) {
       setTranslating(true)
       try {
         const active = activeProvider(settings)

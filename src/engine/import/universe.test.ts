@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildPageExtractionRequest, looksEnglish, parsePageExtraction, universeContext } from './universe'
+import { buildPageExtractionRequest, looksEnglish, parsePageExtraction, textLanguage, universeContext } from './universe'
 
 describe('extraction de page', () => {
   it('construit une requête avec le texte de la page et la langue', () => {
@@ -43,5 +43,13 @@ describe('looksEnglish', () => {
     expect(looksEnglish('She is an extremely loud, chatty, and high-energy runner who treats everything like a party and loves to dance with her friends.')).toBe(true)
     expect(looksEnglish("Elle est une coureuse bruyante et pleine d'énergie, qui traite tout comme une fête avec ses amies.")).toBe(false)
     expect(looksEnglish('Daitaku Helios')).toBe(false)
+  })
+})
+
+describe('textLanguage', () => {
+  it('reconnaît un prologue français ou anglais', () => {
+    expect(textLanguage("「Izumo, sur la vieille route sous la pluie. Les lanternes du sanctuaire grésillent, et l'eau ruisselle entre les pavés.」")).toBe('fr')
+    expect(textLanguage('「Izumo, on the old road in the rain. The lanterns of the shrine sizzle and the water runs between the stones.」')).toBe('en')
+    expect(textLanguage('Izumo')).toBeUndefined()
   })
 })
