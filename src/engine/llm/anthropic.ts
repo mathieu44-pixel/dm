@@ -32,7 +32,15 @@ function textOf(message: Anthropic.Message): string {
 export const DYNAMIC_CONTEXT_OPEN = '<contexte_de_la_partie>\n(Informations de la narratrice, pas écrites par le joueur.)'
 export const DYNAMIC_CONTEXT_CLOSE = '</contexte_de_la_partie>'
 
-type ContentBlock = { type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }
+type ContentBlock =
+  | { type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }
+  | { type: 'image'; source: { type: 'base64'; media_type: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; data: string } }
+
+const imageBlocks = (m: { images?: { mime: string; data: string }[] }): ContentBlock[] =>
+  (m.images ?? []).map((img) => ({
+    type: 'image',
+    source: { type: 'base64', media_type: img.mime as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data: img.data },
+  }))
 
 /**
  * Requête Anthropic. Avec `cacheHistory`, le contexte variable (mémoire, jauges, lore) quitte le prompt
@@ -56,6 +64,7 @@ export function buildAnthropicParams(request: LlmRequest) {
           { type: 'text', text: m.content },
         ],
       }
+    if (m.images?.length) return { role: m.role, content: [...imageBlocks(m), { type: 'text', text: m.content }] }
     return { role: m.role, content: m.content }
   })
   return {

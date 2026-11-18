@@ -2,6 +2,8 @@ import { useRef, useState } from 'react'
 import { addImages, deleteImage, updateImage, useStoryImages } from '../../data/images'
 import { IMAGE_CATEGORIES, IMAGE_LIMITS, MOODS, type ImageAsset, type ImageCategory, type Mood } from '../../engine/images/types'
 import { normalizeQuery } from '../../engine/session/search'
+import { autoAssignMoods, describeReport } from '../../data/autoMoods'
+import { useSettings } from '../../data/settings'
 import { parseImageTags } from '../../engine/images/utils'
 import { Button } from '../../ui/Button'
 import { IconTrash } from '../../ui/icons'
@@ -54,6 +56,7 @@ export function ImagesEditor({
         <strong>Humeurs</strong> : donne plusieurs images de <strong>personnage</strong> au même personnage (joyeux, en colère, gêné…).
         Pendant la partie, l'IA affiche celle qui correspond à son humeur du moment.
       </p>
+      <AutoMoodButton storyId={storyId} />
 
       <div className="flex gap-2">
         <select value={category} onChange={(e) => setCategory(e.target.value as ImageCategory)} className={inputClass + ' w-auto'}>
@@ -241,6 +244,36 @@ export function ImagePicker({
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+/** Attribution automatique des humeurs (v1.5) : mots, puis IA qui regarde les images stockées. */
+function AutoMoodButton({ storyId }: { storyId: string }) {
+  const settings = useSettings()
+  const [busy, setBusy] = useState<string | null>(null)
+  const [result, setResult] = useState<string | null>(null)
+  const run = async () => {
+    setResult(null)
+    setBusy('Analyse…')
+    try {
+      const report = await autoAssignMoods(storyId, settings, (done, total) => setBusy(`L'IA regarde les images… ${done}/${total}`))
+      setResult(report.byWords + report.byVision + report.owners + report.unknown ? describeReport(report) + '.' : 'Rien à attribuer : toutes les images ont déjà une humeur.')
+    } catch (err) {
+      setResult(`Échec : ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setBusy(null)
+    }
+  }
+  return (
+    <div className="space-y-1">
+      <Button variant="secondary" className="w-full" onClick={run} disabled={!!busy}>
+        {busy ?? '✨ Attribuer les humeurs automatiquement'}
+      </Button>
+      <p className="text-xs leading-relaxed text-muted">
+        Ne change pas les humeurs déjà réglées. Les images liées (venues d'un site) ne sont reconnues que par leurs mots-clés.
+        {result && <span className="mt-1 block text-text">{result}</span>}
+      </p>
     </div>
   )
 }

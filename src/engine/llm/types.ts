@@ -5,9 +5,17 @@
 
 export type ProviderId = 'anthropic' | 'gemini'
 
+/** Image jointe à un message (base64 sans préfixe « data: »), pour les modèles qui voient les images (v1.5). */
+export interface ImageInput {
+  mime: string
+  data: string
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
+  /** Images placées avant le texte du message. */
+  images?: ImageInput[]
 }
 
 export interface LlmRequest {

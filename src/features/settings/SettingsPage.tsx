@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { downloadBackup, importBackup, parseBackup, summarizeBackup } from '../../data/backup'
+import { autoAssignMoods, describeReport } from '../../data/autoMoods'
 import { saveGlobalNotes, useGlobalNotes } from '../../data/memories'
 import { setTextSize, TEXT_SIZES, useTextSize } from '../../data/preferences'
 import { MEMORY_LIMITS } from '../../engine/memory/types'
 import { TextArea } from '../../ui/Field'
-import { setActiveProvider, updateProviderSettings, useSettings } from '../../data/settings'
+import { loadSettings, setActiveProvider, updateProviderSettings, useSettings } from '../../data/settings'
 import { maskApiKey } from '../../data/settingsModel'
 import type { ProviderSettings } from '../../data/types'
 import { createProvider, PROVIDER_LABELS, testConnection, type ConnectionTestResult } from '../../engine/llm/client'
@@ -397,7 +398,19 @@ function BackupPanel() {
       const backup = parseBackup(await file.text())
       if (!window.confirm(`Importer ${summarizeBackup(backup)} ? Les éléments identiques seront remplacés.`)) return
       await importBackup(backup)
-      setStatus({ ok: true, text: `Import réussi : ${summarizeBackup(backup)}.` })
+      setStatus({ ok: true, text: `Import réussi : ${summarizeBackup(backup)}. Attribution des humeurs…` })
+      // Humeurs des images de personnage (mots, puis IA qui regarde si une clé est configurée).
+      const settings = await loadSettings()
+      const reports = []
+      for (const story of backup.stories) reports.push(await autoAssignMoods(story.id, settings))
+      const total = reports.reduce(
+        (a, r) => ({ owners: a.owners + r.owners, byWords: a.byWords + r.byWords, byVision: a.byVision + r.byVision, unknown: a.unknown + r.unknown }),
+        { owners: 0, byWords: 0, byVision: 0, unknown: 0 },
+      )
+      setStatus({
+        ok: true,
+        text: `Import réussi : ${summarizeBackup(backup)}.${total.byWords + total.byVision + total.owners + total.unknown ? ` Humeurs : ${describeReport(total)}.` : ''}`,
+      })
     } catch (error) {
       setStatus({ ok: false, text: error instanceof Error ? error.message : String(error) })
     }

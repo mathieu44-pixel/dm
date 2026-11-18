@@ -16,7 +16,7 @@ export function buildGeminiBody(request: LlmRequest) {
     ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
     contents: request.messages.map((m) => ({
       role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
+      parts: [...(m.images ?? []).map((img) => ({ inlineData: { mimeType: img.mime, data: img.data } })), { text: m.content }],
     })),
     generationConfig: {
       maxOutputTokens: request.maxTokens,
