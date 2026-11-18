@@ -22,6 +22,8 @@ export interface LlmRequest {
   signal?: AbortSignal
   /** Met les consignes système en cache (Anthropic) : elles sont renvoyées à chaque tour. */
   cacheSystem?: boolean
+  /** Anthropic : met aussi l'historique en cache (le contexte variable passe dans le dernier message). */
+  cacheHistory?: boolean
 }
 
 /** Compteurs de tokens, harmonisés entre fournisseurs. */

@@ -25,10 +25,10 @@ jobs:
         with:
           node-version: 22
 
-      # Pas de package-lock.json au démarrage : il est généré ici.
-      # Une fois les versions stabilisées, il sera ajouté au dépôt et on passera à `npm ci`.
+      # Versions figées par package-lock.json (v0.9.7) : chaque publication utilise exactement les mêmes.
+      # Pour mettre à jour les dépendances : lancer le workflow « Générer le package-lock ».
       - name: Installer les dépendances
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Vérifier les types
         run: npm run typecheck
@@ -38,12 +38,6 @@ jobs:
 
       - name: Build
         run: npm run build
-
-      - name: Conserver le package-lock généré
-        uses: actions/upload-artifact@v4
-        with:
-          name: package-lock
-          path: package-lock.json
 
       - name: Préparer la publication
         if: github.ref == 'refs/heads/main'

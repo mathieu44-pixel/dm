@@ -117,6 +117,7 @@ export function useGame(sessionId: string | undefined) {
           maxTokens: length.maxTokens,
           signal: controller.signal,
           cacheSystem: true,
+          cacheHistory: true,
         },
         (delta) => {
           text += delta

@@ -1,7 +1,8 @@
 import { useEffect, type ReactNode } from 'react'
 import { HashRouter, Route, Routes } from 'react-router'
 import { textSizeRem, useTextSize } from '../data/preferences'
-import { ensureExampleStory } from '../data/stories'
+import { cleanOrphans, ensureExampleStory } from '../data/stories'
+import { ErrorBoundary } from '../ui/ErrorBoundary'
 import CreatorPage from '../features/creator/CreatorPage'
 import HistoryPage from '../features/history/HistoryPage'
 import { BottomNav } from '../ui/BottomNav'
@@ -23,7 +24,10 @@ export default function App() {
   useEffect(() => {
     // Histoire d'exemple au premier lancement ; on demande aussi un stockage persistant
     // pour que le navigateur n'efface pas les données en cas de manque de place.
+    // Puis nettoyage des données orphelines laissées par les versions antérieures à la 0.9.7.
     void ensureExampleStory()
+      .then(cleanOrphans)
+      .catch(() => undefined)
     void navigator.storage?.persist?.()
   }, [])
 
@@ -36,6 +40,7 @@ export default function App() {
   return (
     <HashRouter>
       <div className="mx-auto min-h-full max-w-xl">
+        <ErrorBoundary>
         <Routes>
           <Route path="/" element={<WithNav><HomePage /></WithNav>} />
           <Route path="/parties" element={<WithNav><HistoryPage /></WithNav>} />
@@ -50,6 +55,7 @@ export default function App() {
           <Route path="/reglages" element={<WithNav><SettingsPage /></WithNav>} />
           <Route path="*" element={<WithNav><HomePage /></WithNav>} />
         </Routes>
+        </ErrorBoundary>
       </div>
     </HashRouter>
   )

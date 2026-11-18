@@ -41,11 +41,18 @@ export async function saveStory(story: Story, characters: Character[]): Promise<
 }
 
 export async function deleteStory(id: string): Promise<void> {
-  await db.transaction('rw', db.stories, db.characters, db.meta, db.images, async () => {
+  await db.transaction('rw', [db.stories, db.characters, db.meta, db.images, db.sessions, db.messages, db.memories], async () => {
     const story = await db.stories.get(id)
     if (!story) return
     await db.characters.bulkDelete(story.characterIds)
     await db.images.where('storyId').equals(id).delete()
+    // Les parties de l'histoire disparaissent avec elle (v0.9.7 : elles restaient orphelines).
+    const sessionIds = (await db.sessions.where('storyId').equals(id).primaryKeys()) as string[]
+    if (sessionIds.length) {
+      await db.messages.where('sessionId').anyOf(sessionIds).delete()
+      await db.memories.where('sessionId').anyOf(sessionIds).delete()
+      await db.sessions.bulkDelete(sessionIds)
+    }
     await db.stories.delete(id)
     // Supprimer l'exemple volontairement : on ne le réinstalle pas automatiquement.
     if (story.isExample) await db.meta.put({ key: 'exampleInstalled', value: true })
@@ -118,5 +125,22 @@ export async function deleteAvatar(id: string): Promise<void> {
       const next = await db.avatars.orderBy('updatedAt').last()
       await db.meta.put({ key: 'defaultAvatarId', value: next?.id ?? null })
     }
+  })
+}
+
+/**
+ * Nettoie les données laissées par les anciennes versions : parties d'histoires supprimées,
+ * messages et souvenirs de parties supprimées. Renvoie le nombre de parties retirées.
+ */
+export async function cleanOrphans(): Promise<number> {
+  return db.transaction('rw', [db.stories, db.sessions, db.messages, db.memories], async () => {
+    const storyIds = new Set((await db.stories.toCollection().primaryKeys()) as string[])
+    const sessions = await db.sessions.toArray()
+    const orphanSessions = sessions.filter((s) => !storyIds.has(s.storyId)).map((s) => s.id)
+    const liveSessions = new Set(sessions.map((s) => s.id).filter((id) => !orphanSessions.includes(id)))
+    await db.sessions.bulkDelete(orphanSessions)
+    await db.messages.filter((m) => !liveSessions.has(m.sessionId)).delete()
+    await db.memories.filter((m) => !!m.sessionId && !liveSessions.has(m.sessionId)).delete()
+    return orphanSessions.length
   })
 }
