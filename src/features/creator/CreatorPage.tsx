@@ -10,6 +10,8 @@ import { describeLlmError } from '../../engine/llm/errors'
 import { formatUsd } from '../../engine/llm/models'
 import { buildCreationRequest, CREATION_LIMITS, DraftParseError, parseStoryDraft, type DraftMode } from '../../engine/creator/storyDraft'
 import { LANGUAGES, type Language } from '../../engine/session/options'
+import { parseCardUrl, splitLinks } from '../../engine/import/cardUrl'
+import { importCharacterFromUrl } from '../../data/importCard'
 import { Button } from '../../ui/Button'
 import { PageHeader } from '../../ui/PageHeader'
 
@@ -41,6 +43,23 @@ export default function CreatorPage() {
   const abortRef = useRef<AbortController | null>(null)
 
   const ready = settings ? isReady(settings) : false
+  // L'IA ne peut pas ouvrir un lien : elle inventerait une histoire à partir des mots de l'adresse.
+  const links = splitLinks(idea)
+  const onlyLink = links.length > 0 && idea.replace(/https?:\/\/\S+/gi, '').trim().length < 20
+  const cardLink = links.find((l) => parseCardUrl(l))
+
+  const importLink = async () => {
+    if (!cardLink) return
+    setBusy(true)
+    setError(null)
+    try {
+      navigate(`/histoire/${await importCharacterFromUrl(cardLink)}`, { replace: true })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const generate = async () => {
     if (!settings || !idea.trim()) return
@@ -165,6 +184,19 @@ export default function CreatorPage() {
           )}
         </div>
 
+        {links.length > 0 && !busy && (
+          <div className="rounded-xl border border-accent/40 bg-accent-soft p-3 text-sm leading-relaxed">
+            <p>
+              L'IA ne peut pas ouvrir les liens : elle n'en verrait que l'adresse et inventerait une histoire à partir de ses mots.
+              {cardLink ? ' Ce lien est une carte de personnage : importe-la directement.' : ' Décris plutôt l\'histoire avec tes mots.'}
+            </p>
+            {cardLink && (
+              <button type="button" onClick={() => void importLink()} className="mt-2 rounded-full bg-accent px-4 py-2 text-xs font-medium text-ink">
+                🔗 Importer la carte
+              </button>
+            )}
+          </div>
+        )}
         {!ready && settings && <p className="text-sm text-red-300">Ajoute d'abord ta clé API dans les Réglages.</p>}
         {error && <p className="rounded-xl border border-red-400/40 p-3 text-sm text-red-300">{error}</p>}
 
@@ -176,7 +208,7 @@ export default function CreatorPage() {
             </Button>
           </div>
         ) : (
-          <Button onClick={generate} disabled={!ready || !idea.trim()}>
+          <Button onClick={generate} disabled={!ready || !idea.trim() || onlyLink}>
             ✦ Générer
           </Button>
         )}

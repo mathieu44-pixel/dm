@@ -5,7 +5,7 @@
  * sinon l'import échoue proprement et on invite à télécharger le fichier.
  */
 
-export type CardSite = 'chub' | 'risu' | 'pygmalion' | 'aicc'
+export type CardSite = 'chub' | 'risu' | 'pygmalion' | 'aicc' | 'ctavern'
 
 export interface CardSource {
   site: CardSite
@@ -17,6 +17,7 @@ export const CARD_SITES: Record<CardSite, string> = {
   risu: 'RisuAI Realm',
   pygmalion: 'Pygmalion',
   aicc: 'AICharacterCards',
+  ctavern: 'Character Tavern',
 }
 
 const UUID = /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i
@@ -46,6 +47,10 @@ export function parseCardUrl(input: string): CardSource | null {
     const m = UUID.exec(url.pathname)
     return m ? { site: 'pygmalion', id: m[0].toLowerCase() } : null
   }
+  if (host.endsWith('character-tavern.com')) {
+    // character-tavern.com/character/auteur/carte
+    return parts[0] === 'character' && parts.length >= 3 ? { site: 'ctavern', id: `${parts[1]}/${parts[2]}` } : null
+  }
   if (host.endsWith('aicharactercards.com')) {
     const i = parts.indexOf('character-cards')
     return i >= 0 && parts.length >= i + 3 ? { site: 'aicc', id: `${parts[i + 1]}/${parts[i + 2]}` } : null
@@ -67,6 +72,9 @@ export function cardRequest(source: CardSource): CardRequest {
       return { kind: 'png', url: `https://realm.risuai.net/api/v1/download/png-v3/${source.id}?non_commercial=true` }
     case 'pygmalion':
       return { kind: 'pygmalion-json', url: `https://server.pygmalion.chat/api/export/character/${source.id}/v2` }
+    case 'ctavern':
+      // Même fichier que le bouton « Download » de la page de la carte.
+      return { kind: 'png', url: `https://ct-cards.storage.character-tavern.com/${source.id.split('/').map(encodeURIComponent).join('/')}.png?action=download` }
     case 'aicc':
       return { kind: 'png', url: `https://aicharactercards.com/wp-json/pngapi/v1/image/${source.id.split('/').map(encodeURIComponent).join('/')}` }
   }

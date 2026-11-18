@@ -14,12 +14,17 @@ describe('parseCardUrl', () => {
     expect(parseCardUrl('https://aicharactercards.com/character-cards/fantasy/mia/')).toEqual({ site: 'aicc', id: 'fantasy/mia' })
   })
   it('refuse les autres sites et les textes qui ne sont pas des liens', () => {
-    expect(parseCardUrl('https://character-tavern.com/character/x/y')).toBeNull()
+    expect(parseCardUrl('https://character-tavern.com/search/cards')).toBeNull()
     expect(parseCardUrl('pas un lien')).toBeNull()
   })
 })
 
 describe('cardRequest', () => {
+  it('reconnaît Character Tavern', () => {
+    const source = parseCardUrl('https://character-tavern.com/character/clockmaker/housekeeper')
+    expect(source).toEqual({ site: 'ctavern', id: 'clockmaker/housekeeper' })
+    expect(cardRequest(source!).url).toBe('https://ct-cards.storage.character-tavern.com/clockmaker/housekeeper.png?action=download')
+  })
   it('construit les adresses de téléchargement', () => {
     expect(cardRequest({ site: 'chub', id: 'Anonymous/example' }).url).toBe('https://api.chub.ai/api/characters/Anonymous/example?full=true')
     expect(cardRequest({ site: 'risu', id: 'abc' })).toEqual({ kind: 'png', url: 'https://realm.risuai.net/api/v1/download/png-v3/abc?non_commercial=true' })
