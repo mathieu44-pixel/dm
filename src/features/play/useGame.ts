@@ -19,6 +19,7 @@ import { createProvider } from '../../engine/llm/client'
 import { recordCost } from '../../data/costs'
 import { describeLlmError } from '../../engine/llm/errors'
 import { buildTurnAnalysisRequest, parseTurnAnalysis } from '../../engine/memory/analysis'
+import { affinityLines, applyAffinityDeltas, meetCharacters } from '../../engine/relations/affinity'
 import { buildSummaryRequest, planSummary, summaryIndex } from '../../engine/memory/summary'
 import { applyDeltas, describeStat, findTriggeredEnding, initStats } from '../../engine/progression/rules'
 import { formatLore, selectLore } from '../../engine/lore/lore'
@@ -99,6 +100,7 @@ export function useGame(sessionId: string | undefined) {
         memories: memories ?? [],
         summary: covered >= 1 ? (data?.session.summary?.text ?? '') : '',
         statLines: statDefs.map((d) => describeStat(d, statValues[d.id])),
+        affinityLines: affinityLines(session?.affinities, data?.characters ?? []),
         language: languageInstruction(session?.language),
         length: length.instruction,
         style: styleInstruction(session?.writingStyle, session?.customStyle),
@@ -164,6 +166,9 @@ export function useGame(sessionId: string | undefined) {
         const auto = (await loadMemories(sessionId)).filter((m) => m.kind !== 'long')
         const before = await loadSession(sessionId)
         const values = initStats(statDefs, before?.stats)
+        // Personnages apparus dans les derniers messages (prologue compris au premier tour) : rencontrés à 50.
+        const met = meetCharacters(before?.affinities, data.characters, entries.slice(-3).map((e) => e.content).join('\n'))
+        const relations = data.characters.filter((c) => c.id in met).map((c) => ({ id: c.id, name: c.name, value: met[c.id] }))
         // Les images de personnage portent le nom du personnage dont elles sont le portrait.
         const portraits = Object.fromEntries(
           data.characters.filter((c) => c.portraitImageId).map((c) => [c.name, c.portraitImageId as string]),
@@ -181,9 +186,10 @@ export function useGame(sessionId: string | undefined) {
             statDefs.length ? { defs: statDefs, values } : undefined,
             sceneImages,
             data.session.language ?? 'fr',
+            relations,
           ),
         )
-        const analysis = parseTurnAnalysis(result.text, auto, statDefs, sceneImages)
+        const analysis = parseTurnAnalysis(result.text, auto, statDefs, sceneImages, relations.map((r) => r.id))
         const last = entries[entries.length - 1]
         // Sans choix de l'IA : portrait du premier personnage qui parle dans le passage (comme dans OOC).
         const fallback =
@@ -195,7 +201,11 @@ export function useGame(sessionId: string | undefined) {
         const imageId = analysis.imageId ?? fallback
         if (imageId && last?.role === 'ai') await setSceneImage(sessionId, entries.map((e) => e.id), last.id, imageId)
         const nextStats = applyDeltas(statDefs, values, analysis.statDeltas)
-        await patchSession(sessionId, { suggestions: analysis.suggestions, stats: nextStats })
+        await patchSession(sessionId, {
+          suggestions: analysis.suggestions,
+          stats: nextStats,
+          affinities: applyAffinityDeltas(met, analysis.affinityDeltas),
+        })
         await applyMemoryChanges(sessionId, analysis)
         await recordCost(sessionId, 'analysis', result)
         await checkEnding(sessionId, nextStats)

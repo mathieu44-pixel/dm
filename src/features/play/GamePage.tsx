@@ -445,6 +445,20 @@ export default function GamePage() {
             </span>
             <span className="text-muted">›</span>
           </Link>
+          {data.characters.length > 0 && (
+            <Link
+              to={`/partie/${session.id}/relations`}
+              className="flex items-center justify-between rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm"
+            >
+              <span>
+                Relations
+                <span className="block text-xs text-muted">
+                  Affinité avec {Object.keys(session.affinities ?? {}).length} personnage(s) rencontré(s)
+                </span>
+              </span>
+              <span className="text-muted">›</span>
+            </Link>
+          )}
           <Link
             to={`/partie/${session.id}/galerie`}
             className="flex items-center justify-between rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm"

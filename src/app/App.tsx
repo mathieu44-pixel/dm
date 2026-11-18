@@ -15,6 +15,7 @@ import GamePage from '../features/play/GamePage'
 import GalleryPage from '../features/play/GalleryPage'
 import MemoryPage from '../features/play/MemoryPage'
 import ReadingPage from '../features/play/ReadingPage'
+import RelationsPage from '../features/play/RelationsPage'
 import SettingsPage from '../features/settings/SettingsPage'
 
 /**
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="/partie/:sessionId/memoire" element={<MemoryPage />} />
           <Route path="/partie/:sessionId/galerie" element={<GalleryPage />} />
           <Route path="/partie/:sessionId/lecture" element={<ReadingPage />} />
+          <Route path="/partie/:sessionId/relations" element={<RelationsPage />} />
           <Route path="/avatars" element={<WithNav><AvatarsPage /></WithNav>} />
           <Route path="/reglages" element={<WithNav><SettingsPage /></WithNav>} />
           <Route path="*" element={<WithNav><HomePage /></WithNav>} />

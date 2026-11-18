@@ -123,3 +123,22 @@ describe("images de scène dans l'analyse de fin de tour", () => {
     expect(parseTurnAnalysis('{"image":"i7"}', [], [], images).imageId).toBeUndefined()
   })
 })
+
+describe('affinités dans l’analyse', () => {
+  it('liste les personnages rencontrés et lit leurs variations', () => {
+    const req = buildTurnAnalysisRequest('m', 'Annaelle', [], [], undefined, [], 'fr', [
+      { id: 'yuri', name: 'Han Yuri', value: 62 },
+      { id: 'hwa', name: 'Hong Hwaryeon', value: 40 },
+    ])
+    expect(req.messages[0].content).toContain('c1 — Han Yuri : 62/100')
+    expect(req.messages[0].content).toContain('"affinity"')
+    const r = parseTurnAnalysis('{"affinity":[{"id":"c2","delta":-4},{"id":"c9","delta":2},{"id":"c1","delta":"3"}]}', [], [], [], ['yuri', 'hwa'])
+    expect(r.affinityDeltas).toEqual([
+      { characterId: 'hwa', delta: -4 },
+      { characterId: 'yuri', delta: 3 },
+    ])
+  })
+  it('omet le champ sans personnage rencontré', () => {
+    expect(buildTurnAnalysisRequest('m', 'A', [], []).messages[0].content).not.toContain('"affinity"')
+  })
+})

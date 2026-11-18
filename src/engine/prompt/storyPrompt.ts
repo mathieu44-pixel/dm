@@ -134,6 +134,8 @@ export interface MemoryContext {
   summary: string
   /** État des jauges, déjà formulé (« Confiance : 40/100 (méfiante) »). */
   statLines?: string[]
+  /** Affinité des personnages rencontrés envers le joueur (v1.1). */
+  affinityLines?: string[]
   /** Réglages de la partie (v0.6). */
   language?: string
   length?: string
@@ -161,6 +163,10 @@ export function buildMemoryPrompt(memory: MemoryContext): string {
     section('Mémoire de la partie', auto.map((m) => `- ${MEMORY_LABELS[m.kind]} : ${m.text}`).join('\n')),
     section("Résumé de l'histoire jusqu'ici", memory.summary),
     section('État actuel des jauges', (memory.statLines ?? []).map((l) => `- ${l}`).join('\n')),
+    section(
+      'Affinité des personnages envers le joueur (0 hostile, 50 neutre, 100 complice) — fais-la sentir dans leur attitude',
+      (memory.affinityLines ?? []).map((l) => `- ${l}`).join('\n'),
+    ),
     section(
       'Réglages de la partie (prioritaires sur le style de l\'histoire)',
       [

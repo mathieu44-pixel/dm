@@ -19,12 +19,21 @@ export interface TurnAnalysis {
   add: { kind: MemoryKind; text: string }[]
   removeIds: string[]
   statDeltas: { statId: string; delta: number }[]
+  /** Variations d'affinité avec les personnages rencontrés (v1.1). */
+  affinityDeltas: { characterId: string; delta: number }[]
   /** Image de scène choisie pour illustrer le dernier passage (v0.5). */
   imageId?: string
 }
 
 /** Image proposée à l'IA : seules ses métadonnées sont envoyées (jamais l'image elle-même). */
 export type SceneImageInput = Pick<ImageAsset, 'id' | 'tags' | 'description'>
+
+/** Personnage rencontré, avec son affinité actuelle (alias c1, c2… dans l'ordre). */
+export interface RelationInput {
+  id: string
+  name: string
+  value: number
+}
 
 export interface StatsInput {
   defs: StatDef[]
@@ -44,6 +53,7 @@ export function buildTurnAnalysisRequest(
   stats?: StatsInput,
   sceneImages: SceneImageInput[] = [],
   language: 'fr' | 'en' = 'fr',
+  relations: RelationInput[] = [],
 ): LlmRequest {
   const transcript = entries
     .filter((e) => !e.ooc)
@@ -65,8 +75,10 @@ export function buildTurnAnalysisRequest(
   const imageList = sceneImages
     .map((img, i) => `i${i + 1} — ${[img.tags.join(', '), img.description].filter(Boolean).join(' : ') || 'sans description'}`)
     .join('\n')
+  const relationList = relations.map((r, i) => `c${i + 1} — ${r.name} : ${r.value}/100`).join('\n')
   const extraFields = [
     ...(statList ? ['  "stats": [{ "id": "s1", "delta": 5 }]'] : []),
+    ...(relationList ? ['  "affinity": [{ "id": "c1", "delta": 3 }]'] : []),
     ...(imageList ? ['  "image": "i2"'] : []),
   ]
 
@@ -84,6 +96,7 @@ export function buildTurnAnalysisRequest(
           `Mémoire actuelle de la partie :\n${memoryList || '(vide)'}`,
           '',
           ...(statList ? [`Jauges de la partie :\n${statList}`, ''] : []),
+          ...(relationList ? [`Affinité des personnages envers ${playerName} (0 = hostile, 50 = neutre, 100 = complice) :\n${relationList}`, ''] : []),
           ...(imageList ? [`Images de scène disponibles :\n${imageList}`, ''] : []),
           `Fin de l'histoire en cours :\n\n${transcript}`,
           '',
@@ -103,6 +116,11 @@ export function buildTurnAnalysisRequest(
           '- remove : alias des éléments de mémoire devenus faux, obsolètes ou des objectifs accomplis.',
           ...(statList
             ? ['- stats : variations des jauges dues aux derniers échanges, selon leurs règles (entier positif ou négatif, petites variations ; omets les jauges inchangées).']
+            : []),
+          ...(relationList
+            ? [
+                `- affinity : variation de l'affinité de chaque personnage envers ${playerName} due aux derniers échanges (de -10 à +10 ; +1 à +3 pour un geste aimable, jusqu'à ±10 pour un acte marquant ; omets les personnages non concernés).`,
+              ]
             : []),
           ...(imageList
             ? [
@@ -132,9 +150,12 @@ export function parseTurnAnalysis(
   autoMemories: MemoryEntry[],
   statDefs: StatDef[] = [],
   sceneImages: SceneImageInput[] = [],
+  relationIds: string[] = [],
 ): TurnAnalysis {
-  const data = extractJsonObject(text) as { suggestions?: unknown; add?: unknown; remove?: unknown; stats?: unknown; image?: unknown } | null
-  if (!data || typeof data !== 'object') return { suggestions: parseSuggestions(text), add: [], removeIds: [], statDeltas: [] }
+  const data = extractJsonObject(text) as
+    | { suggestions?: unknown; add?: unknown; remove?: unknown; stats?: unknown; image?: unknown; affinity?: unknown }
+    | null
+  if (!data || typeof data !== 'object') return { suggestions: parseSuggestions(text), add: [], removeIds: [], statDeltas: [], affinityDeltas: [] }
 
   const suggestions = Array.isArray(data.suggestions) ? parseSuggestions(JSON.stringify(data.suggestions)) : []
 
@@ -170,10 +191,22 @@ export function parseTurnAnalysis(
     }
   }
 
+  const affinityDeltas: TurnAnalysis['affinityDeltas'] = []
+  if (Array.isArray(data.affinity)) {
+    for (const item of data.affinity) {
+      if (typeof item !== 'object' || item === null) continue
+      const { id, delta } = item as { id?: unknown; delta?: unknown }
+      const match = typeof id === 'string' ? /^c(\d+)$/.exec(id.trim()) : null
+      const characterId = match ? relationIds[Number(match[1]) - 1] : undefined
+      const value = typeof delta === 'number' ? delta : typeof delta === 'string' ? Number(delta) : Number.NaN
+      if (characterId && Number.isFinite(value) && value !== 0) affinityDeltas.push({ characterId, delta: Math.round(value) })
+    }
+  }
+
   const imageMatch = typeof data.image === 'string' ? /^i(\d+)$/.exec(data.image.trim()) : null
   const imageId = imageMatch ? sceneImages[Number(imageMatch[1]) - 1]?.id : undefined
 
-  return { suggestions, add, removeIds, statDeltas, ...(imageId ? { imageId } : {}) }
+  return { suggestions, add, removeIds, statDeltas, affinityDeltas, ...(imageId ? { imageId } : {}) }
 }
 
 /** Retire les ajouts déjà connus (même texte, sans tenir compte de la casse ni de la ponctuation finale). */
