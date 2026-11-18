@@ -14,6 +14,8 @@ export interface MessageVariant {
   imageId?: string
   /** Réponse coupée avant sa fin : l'écran propose de la continuer (v0.9.3). */
   truncated?: boolean
+  /** Image d'humeur de chaque personnage dans ce passage : nom → image (v1.2). */
+  expressions?: Record<string, string>
 }
 
 export interface Message {

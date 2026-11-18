@@ -90,7 +90,7 @@ export default function ReadingPage() {
                     <StoredImage id={image} className="aspect-[4/3] w-full object-[center_20%]" />
                   </button>
                 )}
-                <NarrativeView text={content} portraits={portraits} />
+                <NarrativeView text={content} portraits={{ ...portraits, ...message.variants[message.activeVariant]?.expressions }} />
               </section>
             )
           })}

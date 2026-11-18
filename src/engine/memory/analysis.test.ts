@@ -142,3 +142,12 @@ describe('affinités dans l’analyse', () => {
     expect(buildTurnAnalysisRequest('m', 'A', [], []).messages[0].content).not.toContain('"affinity"')
   })
 })
+
+describe('expressions dans l’analyse', () => {
+  it('propose les humeurs illustrées et lit le choix', () => {
+    const req = buildTurnAnalysisRequest('m', 'A', [], [], undefined, [], 'fr', [], [{ name: 'Han Yuri', moods: ['neutral', 'angry'] }])
+    expect(req.messages[0].content).toContain('e1 — Han Yuri : neutral, angry')
+    const r = parseTurnAnalysis('{"expressions":[{"id":"e1","mood":"Angry"},{"id":"e1","mood":"furieuse"},{"id":"e4","mood":"sad"}]}', [], [], [], [], ['Han Yuri'])
+    expect(r.expressions).toEqual([{ name: 'Han Yuri', mood: 'angry' }])
+  })
+})

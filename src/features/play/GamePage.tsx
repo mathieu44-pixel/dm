@@ -185,7 +185,11 @@ export default function GamePage() {
                   <StoredImage id={sceneImage} className="aspect-[4/3] w-full object-[center_20%]" />
                 </button>
               )}
-              {message.ooc ? <OocText text={shown} /> : <NarrativeView text={shown || '「…」'} portraits={portraits} />}
+              {message.ooc ? (
+                <OocText text={shown} />
+              ) : (
+                <NarrativeView text={shown || '「…」'} portraits={{ ...portraits, ...message.variants[message.activeVariant]?.expressions }} />
+              )}
               {!busy && message.variants[message.activeVariant]?.truncated && (
                 <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-accent/40 bg-accent-soft px-3 py-2 text-sm">
                   <span>Réponse coupée avant la fin.</span>

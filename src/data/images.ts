@@ -38,7 +38,7 @@ export async function addImages(storyId: string, files: File[], category: ImageC
   return ids
 }
 
-export async function updateImage(id: string, patch: Partial<Pick<ImageAsset, 'category' | 'tags' | 'description'>>): Promise<void> {
+export async function updateImage(id: string, patch: Partial<Pick<ImageAsset, 'category' | 'tags' | 'description' | 'characterId' | 'mood'>>): Promise<void> {
   await db.images.update(id, patch)
 }
 

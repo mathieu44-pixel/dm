@@ -209,3 +209,11 @@ export async function setSceneImage(sessionId: string, threadIds: string[], mess
     await db.messages.update(messageId, { variants })
   })
 }
+
+/** Enregistre les images d'humeur des personnages pour la variante affichée d'un message (v1.2). */
+export async function setVariantExpressions(messageId: string, expressions: Record<string, string>): Promise<void> {
+  const message = await db.messages.get(messageId)
+  if (!message) return
+  const variants = message.variants.map((v, i) => (i === message.activeVariant ? { ...v, expressions } : v))
+  await db.messages.update(messageId, { variants })
+}

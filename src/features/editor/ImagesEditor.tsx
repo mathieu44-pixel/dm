@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { addImages, deleteImage, updateImage, useStoryImages } from '../../data/images'
-import { IMAGE_CATEGORIES, IMAGE_LIMITS, type ImageAsset, type ImageCategory } from '../../engine/images/types'
+import { IMAGE_CATEGORIES, IMAGE_LIMITS, MOODS, type ImageAsset, type ImageCategory, type Mood } from '../../engine/images/types'
+import { normalizeQuery } from '../../engine/session/search'
 import { parseImageTags } from '../../engine/images/utils'
 import { Button } from '../../ui/Button'
 import { IconTrash } from '../../ui/icons'
@@ -16,10 +17,13 @@ export function ImagesEditor({
   storyId,
   coverImageId,
   onSetCover,
+  characters = [],
 }: {
   storyId: string
   coverImageId?: string
   onSetCover: (id: string | undefined) => void
+  /** Personnages de l'histoire, pour rattacher une image et lui donner une humeur (v1.2). */
+  characters?: { id: string; name: string; portraitImageId?: string }[]
 }) {
   const images = useStoryImages(storyId)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -45,6 +49,10 @@ export function ImagesEditor({
         Les images restent sur ton appareil. Pendant la partie, l'IA illustre les passages avec les images de{' '}
         <strong>scène</strong> et de <strong>personnage</strong> (choisies grâce à leur description et leurs mots-clés, et au
         portrait associé à chaque personnage), puis les débloque dans la galerie. ({images?.length ?? 0}/{IMAGE_LIMITS.perStory})
+      </p>
+      <p className="text-xs leading-relaxed text-muted">
+        <strong>Humeurs</strong> : donne plusieurs images de <strong>personnage</strong> au même personnage (joyeux, en colère, gêné…).
+        Pendant la partie, l'IA affiche celle qui correspond à son humeur du moment.
       </p>
 
       <div className="flex gap-2">
@@ -75,15 +83,31 @@ export function ImagesEditor({
 
       <ul className="space-y-3">
         {images?.map((img) => (
-          <ImageCard key={img.id} image={img} isCover={img.id === coverImageId} onSetCover={onSetCover} />
+          <ImageCard key={img.id} image={img} isCover={img.id === coverImageId} onSetCover={onSetCover} characters={characters} />
         ))}
       </ul>
     </div>
   )
 }
 
-function ImageCard({ image, isCover, onSetCover }: { image: ImageAsset; isCover: boolean; onSetCover: (id: string | undefined) => void }) {
+function ImageCard({
+  image,
+  isCover,
+  onSetCover,
+  characters,
+}: {
+  image: ImageAsset
+  isCover: boolean
+  onSetCover: (id: string | undefined) => void
+  characters: { id: string; name: string; portraitImageId?: string }[]
+}) {
   const [tags, setTags] = useState(image.tags.join(', '))
+  // Personnage rattaché : explicite, sinon portrait principal, sinon nom dans les mots-clés.
+  const owner =
+    image.characterId ??
+    characters.find((c) => c.portraitImageId === image.id)?.id ??
+    characters.find((c) => image.tags.some((t) => normalizeQuery(t) === normalizeQuery(c.name)))?.id ??
+    ''
   const [description, setDescription] = useState(image.description)
 
   return (
@@ -102,6 +126,35 @@ function ImageCard({ image, isCover, onSetCover }: { image: ImageAsset; isCover:
             </option>
           ))}
         </select>
+        {image.category === 'character' && characters.length > 0 && (
+          <div className="flex gap-2">
+            <select
+              value={owner}
+              onChange={(e) => updateImage(image.id, { characterId: e.target.value || undefined })}
+              className={inputClass}
+              aria-label="Personnage"
+            >
+              <option value="">Personnage…</option>
+              {characters.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name || 'Sans nom'}
+                </option>
+              ))}
+            </select>
+            <select
+              value={image.mood ?? 'neutral'}
+              onChange={(e) => updateImage(image.id, { mood: e.target.value as Mood })}
+              className={inputClass + ' w-auto'}
+              aria-label="Humeur"
+            >
+              {MOODS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.emoji} {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <input
           value={description}
           onChange={(e) => setDescription(e.target.value)}

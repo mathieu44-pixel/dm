@@ -14,8 +14,28 @@ export interface ImageAsset {
   tags: string[]
   /** Ce que montre l'image, en une phrase. */
   description: string
+  /** Personnage représenté (v1.2). À défaut, le personnage dont le nom figure dans les mots-clés. */
+  characterId?: string
+  /** Humeur du personnage sur cette image (v1.2) ; absente = neutre. */
+  mood?: Mood
   createdAt: number
 }
+
+/** Humeurs possibles d'une image de personnage (v1.2). */
+export type Mood = 'neutral' | 'happy' | 'angry' | 'sad' | 'embarrassed' | 'surprised' | 'worried' | 'determined' | 'combat' | 'tender'
+
+export const MOODS: { id: Mood; label: string; emoji: string }[] = [
+  { id: 'neutral', label: 'Neutre', emoji: '😐' },
+  { id: 'happy', label: 'Joyeux', emoji: '😄' },
+  { id: 'angry', label: 'En colère', emoji: '😠' },
+  { id: 'sad', label: 'Triste', emoji: '😢' },
+  { id: 'embarrassed', label: 'Gêné', emoji: '😳' },
+  { id: 'surprised', label: 'Surpris', emoji: '😲' },
+  { id: 'worried', label: 'Inquiet', emoji: '😟' },
+  { id: 'determined', label: 'Déterminé', emoji: '😤' },
+  { id: 'tender', label: 'Tendre', emoji: '🥰' },
+  { id: 'combat', label: 'Au combat', emoji: '⚔️' },
+]
 
 export type ImageCategory = 'scene' | 'character' | 'cover' | 'ending' | 'other'
 

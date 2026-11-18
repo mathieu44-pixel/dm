@@ -1,7 +1,7 @@
 import type { LlmRequest } from '../llm/types'
 import { describeStat, type StatValues } from '../progression/rules'
 import type { StatDef } from '../progression/types'
-import type { ImageAsset } from '../images/types'
+import { MOODS, type ImageAsset, type Mood } from '../images/types'
 import { parseSuggestions } from '../prompt/suggestions'
 import type { ThreadEntry } from '../session/types'
 import { MEMORY_LIMITS, type MemoryEntry, type MemoryKind } from './types'
@@ -21,6 +21,8 @@ export interface TurnAnalysis {
   statDeltas: { statId: string; delta: number }[]
   /** Variations d'affinité avec les personnages rencontrés (v1.1). */
   affinityDeltas: { characterId: string; delta: number }[]
+  /** Humeur des personnages présents dans la dernière réponse (v1.2). */
+  expressions: { name: string; mood: Mood }[]
   /** Image de scène choisie pour illustrer le dernier passage (v0.5). */
   imageId?: string
 }
@@ -33,6 +35,12 @@ export interface RelationInput {
   id: string
   name: string
   value: number
+}
+
+/** Personnage qui a des images pour plusieurs humeurs (alias e1, e2…). */
+export interface ExpressionInput {
+  name: string
+  moods: Mood[]
 }
 
 export interface StatsInput {
@@ -54,6 +62,7 @@ export function buildTurnAnalysisRequest(
   sceneImages: SceneImageInput[] = [],
   language: 'fr' | 'en' = 'fr',
   relations: RelationInput[] = [],
+  expressions: ExpressionInput[] = [],
 ): LlmRequest {
   const transcript = entries
     .filter((e) => !e.ooc)
@@ -76,9 +85,11 @@ export function buildTurnAnalysisRequest(
     .map((img, i) => `i${i + 1} — ${[img.tags.join(', '), img.description].filter(Boolean).join(' : ') || 'sans description'}`)
     .join('\n')
   const relationList = relations.map((r, i) => `c${i + 1} — ${r.name} : ${r.value}/100`).join('\n')
+  const expressionList = expressions.map((e, i) => `e${i + 1} — ${e.name} : ${e.moods.join(', ')}`).join('\n')
   const extraFields = [
     ...(statList ? ['  "stats": [{ "id": "s1", "delta": 5 }]'] : []),
     ...(relationList ? ['  "affinity": [{ "id": "c1", "delta": 3 }]'] : []),
+    ...(expressionList ? ['  "expressions": [{ "id": "e1", "mood": "angry" }]'] : []),
     ...(imageList ? ['  "image": "i2"'] : []),
   ]
 
@@ -98,6 +109,7 @@ export function buildTurnAnalysisRequest(
           ...(statList ? [`Jauges de la partie :\n${statList}`, ''] : []),
           ...(relationList ? [`Affinité des personnages envers ${playerName} (0 = hostile, 50 = neutre, 100 = complice) :\n${relationList}`, ''] : []),
           ...(imageList ? [`Images de scène disponibles :\n${imageList}`, ''] : []),
+          ...(expressionList ? [`Humeurs illustrées des personnages (codes : ${MOODS.map((m) => m.id).join(', ')}) :\n${expressionList}`, ''] : []),
           `Fin de l'histoire en cours :\n\n${transcript}`,
           '',
           'Réponds avec ce JSON :',
@@ -120,6 +132,11 @@ export function buildTurnAnalysisRequest(
           ...(relationList
             ? [
                 `- affinity : variation de l'affinité de chaque personnage envers ${playerName} due aux derniers échanges (de -10 à +10 ; +1 à +3 pour un geste aimable, jusqu'à ±10 pour un acte marquant ; omets les personnages non concernés).`,
+              ]
+            : []),
+          ...(expressionList
+            ? [
+                "- expressions : pour chaque personnage de cette liste qui parle ou agit dans la DERNIÈRE réponse de la narratrice, son humeur à ce moment-là, parmi celles listées pour lui (omets les absents).",
               ]
             : []),
           ...(imageList
@@ -151,11 +168,13 @@ export function parseTurnAnalysis(
   statDefs: StatDef[] = [],
   sceneImages: SceneImageInput[] = [],
   relationIds: string[] = [],
+  expressionNames: string[] = [],
 ): TurnAnalysis {
   const data = extractJsonObject(text) as
-    | { suggestions?: unknown; add?: unknown; remove?: unknown; stats?: unknown; image?: unknown; affinity?: unknown }
+    | { suggestions?: unknown; add?: unknown; remove?: unknown; stats?: unknown; image?: unknown; affinity?: unknown; expressions?: unknown }
     | null
-  if (!data || typeof data !== 'object') return { suggestions: parseSuggestions(text), add: [], removeIds: [], statDeltas: [], affinityDeltas: [] }
+  if (!data || typeof data !== 'object')
+    return { suggestions: parseSuggestions(text), add: [], removeIds: [], statDeltas: [], affinityDeltas: [], expressions: [] }
 
   const suggestions = Array.isArray(data.suggestions) ? parseSuggestions(JSON.stringify(data.suggestions)) : []
 
@@ -203,10 +222,22 @@ export function parseTurnAnalysis(
     }
   }
 
+  const expressionsOut: TurnAnalysis['expressions'] = []
+  if (Array.isArray(data.expressions)) {
+    for (const item of data.expressions) {
+      if (typeof item !== 'object' || item === null) continue
+      const { id, mood } = item as { id?: unknown; mood?: unknown }
+      const match = typeof id === 'string' ? /^e(\d+)$/.exec(id.trim()) : null
+      const name = match ? expressionNames[Number(match[1]) - 1] : undefined
+      const m = typeof mood === 'string' ? (mood.trim().toLowerCase() as Mood) : undefined
+      if (name && m && MOODS.some((x) => x.id === m)) expressionsOut.push({ name, mood: m })
+    }
+  }
+
   const imageMatch = typeof data.image === 'string' ? /^i(\d+)$/.exec(data.image.trim()) : null
   const imageId = imageMatch ? sceneImages[Number(imageMatch[1]) - 1]?.id : undefined
 
-  return { suggestions, add, removeIds, statDeltas, affinityDeltas, ...(imageId ? { imageId } : {}) }
+  return { suggestions, add, removeIds, statDeltas, affinityDeltas, expressions: expressionsOut, ...(imageId ? { imageId } : {}) }
 }
 
 /** Retire les ajouts déjà connus (même texte, sans tenir compte de la casse ni de la ponctuation finale). */

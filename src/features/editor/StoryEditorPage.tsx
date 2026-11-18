@@ -156,7 +156,12 @@ export default function StoryEditorPage() {
         </Section>
 
         <Section title="Images">
-          <ImagesEditor storyId={story.id} coverImageId={story.coverImageId} onSetCover={(id) => patch({ coverImageId: id })} />
+          <ImagesEditor
+            storyId={story.id}
+            coverImageId={story.coverImageId}
+            onSetCover={(id) => patch({ coverImageId: id })}
+            characters={characters}
+          />
         </Section>
 
         <Section title={isCharacter ? 'Scénario' : 'Univers'}>
