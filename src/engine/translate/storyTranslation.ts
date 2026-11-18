@@ -1,4 +1,5 @@
 import type { Character, Story } from '../../data/types'
+import type { Condition } from '../progression/types'
 import type { ImageAsset } from '../images/types'
 import type { LlmRequest } from '../llm/types'
 import type { Language } from '../session/options'
@@ -215,6 +216,12 @@ export function remapCopy(
   const charIds = new Map(characters.map((c) => [c.id, newId()]))
   const imgIds = new Map(images.map((img) => [img.id, newId()]))
   const img = (id: string | undefined) => (id ? imgIds.get(id) : undefined)
+  const cond = (c: Condition): Condition => ({
+    ...c,
+    items: c.items.map((item) =>
+      'op' in item ? cond(item) : item.type === 'affinity' ? { ...item, characterId: charIds.get(item.characterId) ?? item.characterId } : item,
+    ),
+  })
   return {
     story: {
       ...story,
@@ -223,7 +230,7 @@ export function remapCopy(
       coverImageId: img(story.coverImageId),
       startSettings: story.startSettings.map((st) => ({
         ...st,
-        endings: st.endings?.map((e) => ({ ...e, imageId: img(e.imageId) })),
+        endings: st.endings?.map((e) => ({ ...e, imageId: img(e.imageId), condition: cond(e.condition) })),
       })),
       isExample: undefined,
       createdAt: now,

@@ -86,3 +86,15 @@ describe('describeCondition', () => {
     )
   })
 })
+
+describe('conditions d’affinité (v1.4)', () => {
+  const cond = { op: 'AND' as const, items: [{ type: 'affinity' as const, characterId: 'c1', cmp: '>=' as const, value: 80 }] }
+  it('compare l’affinité du personnage et reste fausse s’il n’a pas été rencontré', () => {
+    expect(evaluateCondition(cond, { turn: 1, stats: {}, affinities: { c1: 85 } })).toBe(true)
+    expect(evaluateCondition(cond, { turn: 1, stats: {}, affinities: { c1: 50 } })).toBe(false)
+    expect(evaluateCondition(cond, { turn: 1, stats: {} })).toBe(false)
+  })
+  it('se décrit avec le nom du personnage', () => {
+    expect(describeCondition(cond, [], [{ id: 'c1', name: 'Susanoo' }])).toBe('affinité Susanoo ≥ 80')
+  })
+})

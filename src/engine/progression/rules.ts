@@ -67,11 +67,22 @@ function isCondition(item: ConditionItem): item is Condition {
   return 'op' in item
 }
 
-export function evaluateCondition(condition: Condition, ctx: { turn: number; stats: StatValues }): boolean {
+export interface ConditionContext {
+  turn: number
+  stats: StatValues
+  /** Affinités des personnages rencontrés (v1.4). */
+  affinities?: Record<string, number>
+}
+
+export function evaluateCondition(condition: Condition, ctx: ConditionContext): boolean {
   if (condition.items.length === 0) return false
   const test = (item: ConditionItem): boolean => {
     if (isCondition(item)) return evaluateCondition(item, ctx)
     if (item.type === 'turn') return ctx.turn >= item.gte
+    if (item.type === 'affinity') {
+      const affinity = ctx.affinities?.[item.characterId]
+      return typeof affinity === 'number' && compare(affinity, item.cmp, item.value)
+    }
     const value = ctx.stats[item.statId]
     return typeof value === 'number' && compare(value, item.cmp, item.value)
   }
@@ -81,7 +92,7 @@ export function evaluateCondition(condition: Condition, ctx: { turn: number; sta
 /** Première fin (dans l'ordre défini) dont la condition est remplie et qui n'a pas encore été atteinte. */
 export function findTriggeredEnding(
   endings: EndingDef[],
-  ctx: { turn: number; stats: StatValues },
+  ctx: ConditionContext,
   reached: ReachedEnding[] = [],
 ): EndingDef | undefined {
   const done = new Set(reached.map((r) => r.endingId))
@@ -89,12 +100,17 @@ export function findTriggeredEnding(
 }
 
 /** Description lisible d'une condition (pour l'éditeur et la carte de fin). */
-export function describeCondition(condition: Condition, defs: StatDef[]): string {
+export function describeCondition(condition: Condition, defs: StatDef[], characters: { id: string; name: string }[] = []): string {
+  const cmp = (c: Comparator) => (c === '==' ? '=' : c.replace('>=', '≥').replace('<=', '≤'))
   const parts = condition.items.map((item): string => {
-    if (isCondition(item)) return `(${describeCondition(item, defs)})`
+    if (isCondition(item)) return `(${describeCondition(item, defs, characters)})`
     if (item.type === 'turn') return `tour ≥ ${item.gte}`
+    if (item.type === 'affinity') {
+      const who = characters.find((c) => c.id === item.characterId)?.name || 'personnage retiré'
+      return `affinité ${who} ${cmp(item.cmp)} ${item.value}`
+    }
     const name = defs.find((d) => d.id === item.statId)?.name ?? 'jauge supprimée'
-    return `${name} ${item.cmp === '==' ? '=' : item.cmp.replace('>=', '≥').replace('<=', '≤')} ${item.value}`
+    return `${name} ${cmp(item.cmp)} ${item.value}`
   })
   return parts.join(condition.op === 'AND' ? ' ET ' : ' OU ')
 }

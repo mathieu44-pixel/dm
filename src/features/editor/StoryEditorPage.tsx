@@ -298,7 +298,7 @@ export default function StoryEditorPage() {
 
         {!isCharacter && (
           <Section title="Jauges et fins">
-            <ProgressionEditor start={start} storyId={story.id} onChange={patchStart} />
+            <ProgressionEditor start={start} storyId={story.id} onChange={patchStart} characters={characters} />
           </Section>
         )}
       </main>

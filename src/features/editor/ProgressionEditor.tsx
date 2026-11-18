@@ -20,10 +20,13 @@ export function ProgressionEditor({
   start,
   storyId,
   onChange,
+  characters = [],
 }: {
   start: StartSetting
   storyId: string
   onChange: (patch: Partial<StartSetting>) => void
+  /** Personnages de l'histoire, pour les conditions d'affinité (v1.4). */
+  characters?: { id: string; name: string }[]
 }) {
   const stats = start.stats ?? []
   const endings = start.endings ?? []
@@ -123,7 +126,7 @@ export function ProgressionEditor({
               </span>
               <span className="flex-1">
                 <span className="block text-sm font-medium">{e.name || 'Nouvelle fin'}</span>
-                <span className="block text-xs text-muted">{describeCondition(e.condition, stats) || 'aucune condition'}</span>
+                <span className="block text-xs text-muted">{describeCondition(e.condition, stats, characters) || 'aucune condition'}</span>
               </span>
             </summary>
             <div className="space-y-4 border-t border-line p-4">
@@ -138,7 +141,7 @@ export function ProgressionEditor({
                   ))}
                 </select>
               </label>
-              <ConditionEditor condition={e.condition} stats={stats} onChange={(condition) => patchEnding(i, { condition })} />
+              <ConditionEditor condition={e.condition} stats={stats} characters={characters} onChange={(condition) => patchEnding(i, { condition })} />
               <TextArea label="Texte de la carte" value={e.cardText} onChange={(v) => patchEnding(i, { cardText: v })} rows={2} />
               <ImagePicker storyId={storyId} label="Illustration" prefer="ending" value={e.imageId} onChange={(id) => patchEnding(i, { imageId: id })} />
               <TextArea label="Épilogue" value={e.epilogue} onChange={(v) => patchEnding(i, { epilogue: v })} rows={6} hint="Révélé quand le joueur retourne la carte." />
@@ -193,7 +196,17 @@ function NumberField({ label, value, onChange }: { label: string; value: number;
 }
 
 /** Conditions d'une fin : liste à plat reliée par ET / OU (les conditions imbriquées restent lisibles mais non éditables). */
-function ConditionEditor({ condition, stats, onChange }: { condition: Condition; stats: StatDef[]; onChange: (c: Condition) => void }) {
+function ConditionEditor({
+  condition,
+  stats,
+  characters,
+  onChange,
+}: {
+  condition: Condition
+  stats: StatDef[]
+  characters: { id: string; name: string }[]
+  onChange: (c: Condition) => void
+}) {
   const patchItem = (i: number, item: ConditionItem) => onChange({ ...condition, items: condition.items.map((it, j) => (j === i ? item : it)) })
   const remove = (i: number) => onChange({ ...condition, items: condition.items.filter((_, j) => j !== i) })
 
@@ -217,7 +230,7 @@ function ConditionEditor({ condition, stats, onChange }: { condition: Condition;
       {condition.items.map((item, i) => (
         <div key={i} className="flex items-center gap-2">
           {'op' in item ? (
-            <span className="flex-1 text-xs text-muted">({describeCondition(item, stats)})</span>
+            <span className="flex-1 text-xs text-muted">({describeCondition(item, stats, characters)})</span>
           ) : item.type === 'turn' ? (
             <>
               <span className="w-24 shrink-0 text-sm">Tour ≥</span>
@@ -227,6 +240,38 @@ function ConditionEditor({ condition, stats, onChange }: { condition: Condition;
                 value={item.gte}
                 onChange={(e) => patchItem(i, { type: 'turn', gte: Number(e.target.value) || 0 })}
                 className={inputClass}
+              />
+            </>
+          ) : item.type === 'affinity' ? (
+            <>
+              <select
+                value={item.characterId}
+                onChange={(e) => patchItem(i, { ...item, characterId: e.target.value })}
+                className={inputClass + ' min-w-0 flex-[2]'}
+                aria-label="Personnage"
+              >
+                {!characters.some((c) => c.id === item.characterId) && <option value={item.characterId}>Personnage retiré</option>}
+                {characters.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    ❤ {c.name || 'Sans nom'}
+                  </option>
+                ))}
+              </select>
+              <select value={item.cmp} onChange={(e) => patchItem(i, { ...item, cmp: e.target.value as Comparator })} className={inputClass + ' w-16 shrink-0'}>
+                {COMPARATORS.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={100}
+                value={item.value}
+                onChange={(e) => patchItem(i, { ...item, value: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
+                className={inputClass + ' w-20 shrink-0'}
               />
             </>
           ) : (
@@ -270,6 +315,14 @@ function ConditionEditor({ condition, stats, onChange }: { condition: Condition;
             onClick={() => onChange({ ...condition, items: [...condition.items, { type: 'stat', statId: stats[0].id, cmp: '>=', value: Math.round((stats[0].min + stats[0].max) / 2) }] })}
           >
             + Jauge
+          </Button>
+        )}
+        {characters.length > 0 && (
+          <Button
+            variant="ghost"
+            onClick={() => onChange({ ...condition, items: [...condition.items, { type: 'affinity', characterId: characters[0].id, cmp: '>=', value: 80 }] })}
+          >
+            + Affinité
           </Button>
         )}
       </div>

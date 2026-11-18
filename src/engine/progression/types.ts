@@ -24,6 +24,8 @@ export type Comparator = '>=' | '<=' | '>' | '<' | '=='
 export type ConditionItem =
   | { type: 'turn'; gte: number }
   | { type: 'stat'; statId: string; cmp: Comparator; value: number }
+  /** Affinité avec un personnage (0-100, v1.4). Fausse tant que le personnage n'a pas été rencontré. */
+  | { type: 'affinity'; characterId: string; cmp: Comparator; value: number }
   | Condition
 
 export interface Condition {

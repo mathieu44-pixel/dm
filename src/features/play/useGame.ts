@@ -142,7 +142,7 @@ export function useGame(sessionId: string | undefined) {
       const fresh = await loadSession(sessionId)
       if (!fresh || fresh.pendingEndingId) return
       const reached = fresh.endingsReached ?? []
-      const ending = findTriggeredEnding(endings, { turn: fresh.turn, stats }, reached)
+      const ending = findTriggeredEnding(endings, { turn: fresh.turn, stats, affinities: fresh.affinities }, reached)
       if (!ending) return
       await patchSession(sessionId, {
         pendingEndingId: ending.id,
