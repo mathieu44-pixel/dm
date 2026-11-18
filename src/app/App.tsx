@@ -5,6 +5,7 @@ import { cleanOrphans, ensureExampleStory } from '../data/stories'
 import { ErrorBoundary } from '../ui/ErrorBoundary'
 import CreatorPage from '../features/creator/CreatorPage'
 import HistoryPage from '../features/history/HistoryPage'
+import ImportUniversePage from '../features/importer/ImportUniversePage'
 import { BottomNav } from '../ui/BottomNav'
 import AvatarsPage from '../features/avatars/AvatarsPage'
 import StoryEditorPage from '../features/editor/StoryEditorPage'
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="/" element={<WithNav><HomePage /></WithNav>} />
           <Route path="/parties" element={<WithNav><HistoryPage /></WithNav>} />
           <Route path="/creer" element={<CreatorPage />} />
+          <Route path="/importer" element={<ImportUniversePage />} />
           <Route path="/histoire/:id" element={<StoryPage />} />
           <Route path="/histoire/:id/modifier" element={<StoryEditorPage />} />
           <Route path="/partie/:sessionId" element={<GamePage />} />
