@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { buildPageExtractionRequest, parsePageExtraction, universeContext } from './universe'
+import { buildPageExtractionRequest, looksEnglish, parsePageExtraction, universeContext } from './universe'
 
 describe('extraction de page', () => {
   it('construit une requête avec le texte de la page et la langue', () => {
     const req = buildPageExtractionRequest('m', { title: 'Special Week', text: 'Special Week is…' }, 'fr', 'Umamusume')
     expect(req.messages[0].content).toContain('« Special Week »')
-    expect(req.messages[0].content).toContain('en français')
+    expect(req.system).toContain('EN FRANÇAIS')
   })
   it('lit un personnage', () => {
     const e = parsePageExtraction('```json\n{"kind":"character","name":"Special Week","title":"Élève de Tracen","personality":"Joyeuse","keys":["Spe","Special Week","Spe"]}\n```', 'x')
@@ -35,5 +35,13 @@ describe('universeContext', () => {
     })
     expect(text).toContain('- Oguri Cap (Grey Monster)')
     expect(text).toContain('- Tracen : École.')
+  })
+})
+
+describe('looksEnglish', () => {
+  it('repère une fiche restée en anglais', () => {
+    expect(looksEnglish('She is an extremely loud, chatty, and high-energy runner who treats everything like a party and loves to dance with her friends.')).toBe(true)
+    expect(looksEnglish("Elle est une coureuse bruyante et pleine d'énergie, qui traite tout comme une fête avec ses amies.")).toBe(false)
+    expect(looksEnglish('Daitaku Helios')).toBe(false)
   })
 })

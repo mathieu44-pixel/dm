@@ -18,14 +18,22 @@ export type PageExtraction =
   | { kind: 'character'; character: DraftCharacter; keys: string[] }
   | { kind: 'lore'; name: string; keys: string[]; content: string }
 
-export function buildPageExtractionRequest(model: string, page: { title: string; text: string }, language: 'fr' | 'en', universe: string): LlmRequest {
+export function buildPageExtractionRequest(
+  model: string,
+  page: { title: string; text: string },
+  language: 'fr' | 'en',
+  universe: string,
+  retryLanguage = false,
+): LlmRequest {
   const en = language === 'en'
+  const languageRule = en
+    ? 'LANGUE : écris toutes les valeurs du JSON EN ANGLAIS.'
+    : "LANGUE : écris toutes les valeurs du JSON EN FRANÇAIS, même si la page est en anglais : traduis. Seuls les noms propres restent tels quels."
   return {
     model,
     maxTokens: 2048,
     temperature: 0.3,
-    system:
-      "Tu prépares des fiches pour une histoire interactive à partir d'une page de wiki. Réponds uniquement avec un objet JSON valide, sans autre texte.",
+    system: `Tu prépares des fiches pour une histoire interactive à partir d'une page de wiki. ${languageRule} Réponds uniquement avec un objet JSON valide, sans autre texte.`,
     messages: [
       {
         role: 'user',
@@ -40,7 +48,8 @@ export function buildPageExtractionRequest(model: string, page: { title: string;
           "Sinon (lieu, groupe, objet, notion, événement…), réponds :",
           '{ "kind": "lore", "name": "…", "keys": ["mots-clés qui évoquent ce sujet"], "content": "fiche de 80 à 200 mots, l\'essentiel pour jouer" }',
           'Règles :',
-          `- ${en ? 'Écris tous les textes EN ANGLAIS.' : 'Écris tous les textes en français (garde les noms propres d\'origine).'}`,
+          `- ${languageRule}`,
+          ...(retryLanguage ? ["- ATTENTION : ta réponse précédente n'était pas dans la bonne langue. Recommence en respectant la langue demandée."] : []),
           "- Reste fidèle à la page : n'invente rien, résume ce qui sert à incarner ou décrire le sujet. Ignore les statistiques de jeu, listes de compétences, dates de sortie et anecdotes de production.",
           '- Champs du personnage : 1 à 4 phrases chacun.',
           '- keys : 1 à 6 mots-clés courts.',
@@ -99,4 +108,21 @@ export function universeContext(input: { sourceTitle: string; worldText: string;
   ]
     .filter(Boolean)
     .join('\n')
+}
+
+const ENGLISH_WORDS = /\b(the|and|she|he|her|his|is|was|with|who|of|to|in|has|her)\b/gi
+const FRENCH_WORDS = /\b(le|la|les|et|elle|il|est|une|des|du|qui|avec|dans|son|sa|ses)\b/gi
+
+/** Le texte semble-t-il anglais plutôt que français ? (heuristique sur les mots courants) */
+export function looksEnglish(text: string): boolean {
+  const en = text.match(ENGLISH_WORDS)?.length ?? 0
+  const fr = text.match(FRENCH_WORDS)?.length ?? 0
+  return en >= 4 && en > fr * 1.5
+}
+
+/** Texte d'une fiche extraite, pour vérifier sa langue. */
+export function extractionText(e: PageExtraction): string {
+  return e.kind === 'character'
+    ? [e.character.title, e.character.appearance, e.character.personality, e.character.speech, e.character.background].join(' ')
+    : e.content
 }

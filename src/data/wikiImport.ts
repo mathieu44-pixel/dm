@@ -7,7 +7,7 @@ import { saveStory } from './stories'
 import { newId } from './storyModel'
 import { buildCreationRequest, parseStoryDraft, type DraftCharacter } from '../engine/creator/storyDraft'
 import { articleLinks, parseWikiUrl, wikiApiUrl } from '../engine/import/mediawiki'
-import { buildPageExtractionRequest, parsePageExtraction, universeContext, UNIVERSE_LIMITS } from '../engine/import/universe'
+import { buildPageExtractionRequest, extractionText, looksEnglish, parsePageExtraction, universeContext, UNIVERSE_LIMITS } from '../engine/import/universe'
 import { createProvider } from '../engine/llm/client'
 import type { LoreEntry } from '../engine/lore/lore'
 
@@ -130,9 +130,15 @@ export async function importUniverse(
     report(`Lecture des pages (${i + 1}/${titles.length})`)
     try {
       const page = await readPage(options.index.api, title)
-      const result = await provider.complete({ ...buildPageExtractionRequest(active.utilityModel, page, options.language, universe), signal })
+      let result = await provider.complete({ ...buildPageExtractionRequest(active.utilityModel, page, options.language, universe), signal })
       await recordCost(null, 'creation', result)
-      const extracted = parsePageExtraction(result.text, page.title)
+      let extracted = parsePageExtraction(result.text, page.title)
+      // Les petits modèles recopient parfois la page sans traduire : une seconde tentative, plus insistante.
+      if (extracted && options.language === 'fr' && looksEnglish(extractionText(extracted))) {
+        result = await provider.complete({ ...buildPageExtractionRequest(active.utilityModel, page, options.language, universe, true), signal })
+        await recordCost(null, 'creation', result)
+        extracted = parsePageExtraction(result.text, page.title) ?? extracted
+      }
       if (!extracted) throw new Error("réponse de l'IA illisible")
       if (extracted.kind === 'character') {
         characters.push({ ...extracted.character, keys: extracted.keys, image: images.get(title) })
