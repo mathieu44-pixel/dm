@@ -227,7 +227,11 @@ export function useGame(sessionId: string | undefined) {
                 .flatMap((seg) => (seg.type === 'dialogue' ? [findPortrait(seg.speaker, { ...portraits, ...expressionMap })] : []))
                 .find((id): id is string => !!id)
             : undefined
-        const imageId = analysis.imageId ?? fallback
+        // Si l'IA choisit l'image d'un personnage dont l'humeur est connue, on affiche son image d'humeur.
+        const chosenOwner = analysis.imageId
+          ? sets.find((s) => s.name in expressionMap && Object.values(s.byMood).some((ids) => ids?.includes(analysis.imageId!)))
+          : undefined
+        const imageId = (chosenOwner && expressionMap[chosenOwner.name]) || analysis.imageId || fallback
         if (imageId && last?.role === 'ai') await setSceneImage(sessionId, entries.map((e) => e.id), last.id, imageId)
         const nextStats = applyDeltas(statDefs, values, analysis.statDeltas)
         await patchSession(sessionId, {

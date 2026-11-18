@@ -6,6 +6,11 @@ import { deleteStory, useAvatars, useDefaultAvatarId, useStory } from '../../dat
 import type { Story } from '../../data/types'
 import { LANGUAGES, type Language } from '../../engine/session/options'
 import { Button } from '../../ui/Button'
+import { useSettings } from '../../data/settings'
+import { activeProvider, isReady } from '../../data/settingsModel'
+import { createProvider } from '../../engine/llm/client'
+import { recordCost } from '../../data/costs'
+import { buildStartTranslationRequest, parseStartTranslation } from '../../engine/prompt/translateStart'
 import { NarrativeView } from '../../ui/NarrativeView'
 import { PageHeader } from '../../ui/PageHeader'
 import { SessionList } from '../../ui/SessionList'
@@ -164,10 +169,30 @@ function StartSheet({ story, onClose }: { story: Story; onClose: () => void }) {
   const [startId, setStartId] = useState(story.startSettings[0]?.id)
   const [language, setLanguage] = useState<Language>(story.defaultLanguage ?? 'fr')
   const chosenAvatar = avatarId === undefined ? (defaultId ?? null) : avatarId
+  const settings = useSettings()
+  const [translating, setTranslating] = useState(false)
 
   const start = async () => {
     const avatar = avatars?.find((a) => a.id === chosenAvatar) ?? null
-    const sessionId = await createSession(story, startId, avatar, language)
+    // Langue de jeu différente de celle de l'histoire : le prologue écrit est traduit (sinon il reste tel quel).
+    let translated: { prologue: string; suggestions: string[] } | undefined
+    const setting = story.startSettings.find((s) => s.id === startId) ?? story.startSettings[0]
+    if (setting && language !== (story.defaultLanguage ?? 'fr') && settings && isReady(settings)) {
+      setTranslating(true)
+      try {
+        const active = activeProvider(settings)
+        const result = await createProvider(active.provider, active.apiKey).complete(
+          buildStartTranslationRequest(active.utilityModel, setting.prologue, setting.initialSuggestions, language),
+        )
+        translated = parseStartTranslation(result.text, setting.initialSuggestions.length) ?? undefined
+        await recordCost(null, 'command', result)
+      } catch {
+        translated = undefined
+      } finally {
+        setTranslating(false)
+      }
+    }
+    const sessionId = await createSession(story, startId, avatar, language, translated)
     navigate(`/partie/${sessionId}`)
   }
 
@@ -245,8 +270,8 @@ function StartSheet({ story, onClose }: { story: Story; onClose: () => void }) {
           <Button variant="secondary" className="flex-1" onClick={onClose}>
             Annuler
           </Button>
-          <Button className="flex-1" onClick={start}>
-            Commencer
+          <Button className="flex-1" onClick={start} disabled={translating}>
+            {translating ? 'Traduction…' : 'Commencer'}
           </Button>
         </div>
       </div>

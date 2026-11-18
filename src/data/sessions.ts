@@ -58,6 +58,7 @@ export async function createSession(
   startSettingId: string,
   avatar: Avatar | null,
   language: Language = story.defaultLanguage ?? 'fr',
+  translated?: { prologue: string; suggestions: string[] },
 ): Promise<string> {
   const start = story.startSettings.find((s) => s.id === startSettingId) ?? story.startSettings[0]
   const now = Date.now()
@@ -67,7 +68,7 @@ export async function createSession(
     sessionId,
     parentId: null,
     role: 'ai',
-    variants: [{ content: substituteVariables(start.prologue, story.title, avatar?.name || 'toi'), createdAt: now }],
+    variants: [{ content: substituteVariables(translated?.prologue || start.prologue, story.title, avatar?.name || 'toi'), createdAt: now }],
     activeVariant: 0,
     createdAt: now,
   }
@@ -81,7 +82,7 @@ export async function createSession(
     activeLeafId: prologue.id,
     turn: 0,
     costUsd: 0,
-    suggestions: start.initialSuggestions,
+    suggestions: translated?.suggestions.length ? translated.suggestions : start.initialSuggestions,
     stats: initStats(start.stats ?? []),
     language,
     endingsReached: [],
